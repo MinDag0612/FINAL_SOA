@@ -1,0 +1,10 @@
+FROM nginx:latest
+
+# Xóa config mặc định
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy config của bạn vào
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
+EXPOSE 80

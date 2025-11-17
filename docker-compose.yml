@@ -1,0 +1,280 @@
+version: "3.9"
+
+services:
+
+  # =====================
+  # AUTH DB
+  # =====================
+  auth_db:
+    image: mysql:8.0
+    container_name: auth_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_AUTH
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./Auth/core/auth_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - auth_data:/var/lib/mysql
+    ports:
+    - "3306:3306"
+    networks:
+      - backend
+
+  # =====================
+  # BILL DB
+  # =====================
+  bill_db:
+    image: mysql:8.0
+    container_name: bill_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_BILL
+    volumes:
+      - ./Billing/core/bill_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - bill_data:/var/lib/mysql
+    ports:
+    - "3307:3306"
+    networks:
+      - backend
+
+  # =====================
+  # COURT DB
+  # =====================
+  court_db:
+    image: mysql:8.0
+    container_name: court_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_COURT
+    volumes:
+      - ./Court/core/court_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - court_data:/var/lib/mysql
+    ports:
+    - "3308:3306"
+    networks:
+      - backend
+
+  # =====================
+  # BOOKING DB
+  # =====================
+  booking_db:
+    image: mysql:8.0
+    container_name: booking_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_BOOKING
+    volumes:
+      - ./Booking/core/booking_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - booking_data:/var/lib/mysql
+    ports:
+    - "3309:3306"
+    networks:
+      - backend
+
+  # =====================
+  # FACILITY DB
+  # =====================
+  facility_db:
+    image: mysql:8.0
+    container_name: facility_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_FACILITY
+    volumes:
+      - ./Facility/core/facility_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - facility_data:/var/lib/mysql
+    ports:
+    - "3310:3306"
+    networks:
+      - backend
+
+  # =====================
+  # SESSION DB
+  # =====================
+  session_db:
+    image: mysql:8.0
+    container_name: session_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_SESSION
+    volumes:
+      - ./Session/core/session_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - session_data:/var/lib/mysql
+    ports:
+    - "3311:3306"
+    networks:
+      - backend
+
+  # =====================
+  # AUTH API
+  # =====================
+  auth_api:
+    build:
+      context: ./Auth
+      dockerfile: dockerfile
+    container_name: auth_service
+    restart: always
+    depends_on:
+      - auth_db
+    environment:
+      DB_HOST: auth_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_AUTH
+    ports:
+      - "8001:8001"
+    networks:
+      - backend
+
+  # =====================
+  # BILLING API
+  # =====================
+  billing_api:
+    build:
+      context: ./Billing
+      dockerfile: dockerfile
+    container_name: billing_service
+    restart: always
+    depends_on:
+      - bill_db
+    environment:
+      DB_HOST: bill_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_BILL
+    ports:
+      - "8002:8002"
+    networks:
+      - backend
+
+  # =====================
+  # BOOKING API
+  # =====================
+  booking_api:
+    build:
+      context: ./Booking
+      dockerfile: dockerfile
+    container_name: booking_service
+    restart: always
+    depends_on:
+      - booking_db
+    environment:
+      DB_HOST: booking_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_BOOKING
+    ports:
+      - "8003:8003"
+    networks:
+      - backend
+
+  # =====================
+  # COURT API
+  # =====================
+  court_api:
+    build:
+      context: ./Court
+      dockerfile: dockerfile
+    container_name: court_service
+    restart: always
+    depends_on:
+      - court_db
+    environment:
+      DB_HOST: court_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_COURT
+    ports:
+      - "8004:8004"
+    networks:
+      - backend
+
+  # =====================
+  # FACILITY API
+  # =====================
+  facility_api:
+    build:
+      context: ./Facility
+      dockerfile: dockerfile
+    container_name: facility_service
+    restart: always
+    depends_on:
+      - facility_db
+    environment:
+      DB_HOST: facility_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_FACILITY
+    ports:
+      - "8005:8005"
+    networks:
+      - backend
+
+  # =====================
+  # SESSION API
+  # =====================
+  session_api:
+    build:
+      context: ./Session
+      dockerfile: dockerfile
+    container_name: session_service
+    restart: always
+    depends_on:
+      - session_db
+    environment:
+      DB_HOST: session_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_SESSION
+    ports:
+      - "8006:8006"
+    networks:
+      - backend
+
+  # =====================
+  # API GATEWAY SERVICE
+  # =====================
+  apigateway:
+    build: ./APIGateway
+    container_name: api_gateway
+    depends_on:
+      - auth_api
+    networks:
+      - backend
+
+  # =====================
+  # NGINX
+  # =====================
+  nginx:
+    build: ./Nginx
+    container_name: gateway_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - apigateway
+    networks:
+      - backend
+
+
+networks:
+  backend:
+
+volumes:
+  auth_data:
+  bill_data:
+  court_data:
+  booking_data:
+  session_data:
+  facility_data:
