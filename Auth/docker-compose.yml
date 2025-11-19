@@ -1,0 +1,55 @@
+
+
+services:
+
+  # =====================
+  # AUTH DB
+  # =====================
+  auth_db:
+    image: mysql:8.0
+    # container_name: auth_db  # removed to avoid name duplication across projects
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_AUTH
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./core/auth_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - auth_data:/var/lib/mysql
+    ports:
+    - "3306:3306"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # =====================
+  # AUTH API
+  # =====================
+  auth_api_independ:
+    build:
+      context: ./
+      dockerfile: dockerfile
+    # container_name: auth_service  # removed to avoid name duplication across projects
+    restart: always
+    depends_on:
+      - auth_db
+    environment:
+      DB_HOST: auth_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_AUTH
+    ports:
+      - "8001:8001"
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  auth_data:

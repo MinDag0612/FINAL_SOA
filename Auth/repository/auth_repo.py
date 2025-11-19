@@ -8,7 +8,7 @@ class AuthRepo:
     def __init__(self, db: Session):
         self.db = db
         
-    def insert_user(self, user_data: User_infor):
+    def insert_user(self, user_data: User_infor, password: str):
         query = text(
             """
             INSERT INTO User_Infor (fullname, email, password, role)
@@ -21,7 +21,7 @@ class AuthRepo:
                 {
                     "fullname": user_data.fullname,
                     "email": user_data.email,
-                    "password": user_data.password,
+                    "password": password,
                     "role": user_data.role,
                 }
             )
@@ -33,7 +33,21 @@ class AuthRepo:
         except Exception as e:
             self.db.rollback()
             raise Exception(f"{e} -- from auth repository")
-
+        
+    def get_user_by_email(self, email: str):
+        query = text(
+            """
+            SELECT * FROM User_Infor
+            WHERE email = :email
+            LIMIT 1
+            """
+        )
+        try:
+            result = self.db.execute(query, {"email": email})
+            user_row = result.fetchone()
+            return user_row._asdict()
+        except Exception as e:
+            raise Exception(f"{e} -- from auth repository")
         
         
         

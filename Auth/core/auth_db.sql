@@ -13,7 +13,7 @@ CREATE TABLE User_Infor (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO User_Infor(fullname, email, password, role) VALUES
-    ('Nguyen Van A', 'a@example.com', "$argon2id$v=19$m=65536,t=3,p=4$OwsLMT80myAmcpb5/mpRQg$nFwmpRb9bZFk+Uz01870g2Q/85VORlYrrIUk33/FqEI", "customer"),
-    ('Nguyen Van B', 'b@example.com', "$argon2id$v=19$m=65536,t=3,p=4$v1JvpId+k7ZlUpIGpgsfzA$Ttiu6vn0hCid0uLB/o/XXMRjFEZRD4P/OIMshC3Yhts", "manager"),
+    ('Ton Minh Dang 1', 'tonminhdang9@gmail.com', "$argon2id$v=19$m=65536,t=3,p=4$OwsLMT80myAmcpb5/mpRQg$nFwmpRb9bZFk+Uz01870g2Q/85VORlYrrIUk33/FqEI", "customer"), 
+    ('Ton Minh Dang 2', '523h0011@student.tdtu.edu.vn', "$argon2id$v=19$m=65536,t=3,p=4$v1JvpId+k7ZlUpIGpgsfzA$Ttiu6vn0hCid0uLB/o/XXMRjFEZRD4P/OIMshC3Yhts", "manager"),
     ('Nguyen Van C', 'c@example.com', "$argon2id$v=19$m=65536,t=3,p=4$34ow4scCWKefJbT7d7+Sfg$S8f80+LyYqIBgE2Iar1gqxzZf+OJ8sg+VfeQwiOmRWY", "customer"),
     ('Nguyen Van D', 'd@example.com', "$argon2id$v=19$m=65536,t=3,p=4$766X2FajzJWpJcEBHd9BQA$Za5WCg+XUGN9gSl/2RG5lzNc55DUeHu407z+dYMWYAE", "manager");
