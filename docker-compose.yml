@@ -40,22 +40,23 @@ services:
       - backend
 
   # =====================
-  # COURT DB
+  # MANAGE COURT DB
   # =====================
-  court_db:
+  manage_court_db:
     image: mysql:8.0
-    container_name: court_db
+    container_name: manage_court_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: DB_COURT
+      MYSQL_DATABASE: DB_MANAGE_COURT
     volumes:
-      - ./Court/core/court_db.sql:/docker-entrypoint-initdb.d/init.sql
-      - court_data:/var/lib/mysql
+      - ./Manage_Court/core/manage_court_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - manage_court_data:/var/lib/mysql
     ports:
     - "3308:3306"
     networks:
       - backend
+
 
   # =====================
   # BOOKING DB
@@ -75,23 +76,7 @@ services:
     networks:
       - backend
 
-  # =====================
-  # FACILITY DB
-  # =====================
-  facility_db:
-    image: mysql:8.0
-    container_name: facility_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: DB_FACILITY
-    volumes:
-      - ./Facility/core/facility_db.sql:/docker-entrypoint-initdb.d/init.sql
-      - facility_data:/var/lib/mysql
-    ports:
-    - "3310:3306"
-    networks:
-      - backend
+
 
   # =====================
   # SESSION DB
@@ -180,46 +165,25 @@ services:
   # =====================
   # COURT API
   # =====================
-  court_api:
+  manage_court_api:
     build:
-      context: ./Court
+      context: ./Manage_Court
       dockerfile: dockerfile
-    container_name: court_service
+    container_name: C_service
     restart: always
     depends_on:
-      - court_db
+      - manage_court_db
     environment:
-      DB_HOST: court_db
+      DB_HOST: manage_court_db
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: root
-      DB_NAME: DB_COURT
+      DB_NAME: DB_MANAGE_COURT
     ports:
       - "8004:8004"
     networks:
       - backend
 
-  # =====================
-  # FACILITY API
-  # =====================
-  facility_api:
-    build:
-      context: ./Facility
-      dockerfile: dockerfile
-    container_name: facility_service
-    restart: always
-    depends_on:
-      - facility_db
-    environment:
-      DB_HOST: facility_db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: DB_FACILITY
-    ports:
-      - "8005:8005"
-    networks:
-      - backend
 
   # =====================
   # SESSION API
@@ -274,7 +238,6 @@ networks:
 volumes:
   auth_data:
   bill_data:
-  court_data:
+  manage_court_data:
   booking_data:
   session_data:
-  facility_data:

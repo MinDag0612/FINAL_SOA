@@ -5,15 +5,15 @@ USE DB_SESSION;
 DROP TABLE IF EXISTS Session;
 
 CREATE TABLE Session (
-    user_id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) UNIQUE,
-    fullname VARCHAR(255),
-    password VARCHAR(255),
-    role VARCHAR(50)
+    session_id  INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id  INT NOT NULL,
+    court_id    INT NOT NULL,
+    time_from   TIME NOT NULL,
+    time_to     TIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO Session(fullname, email, password, role) VALUES
-    ('Nguyen Van A', 'a@example.com', "$argon2id$v=19$m=65536,t=3,p=4$OwsLMT80myAmcpb5/mpRQg$nFwmpRb9bZFk+Uz01870g2Q/85VORlYrrIUk33/FqEI", "customer"),
-    ('Nguyen Van B', 'b@example.com', "$argon2id$v=19$m=65536,t=3,p=4$v1JvpId+k7ZlUpIGpgsfzA$Ttiu6vn0hCid0uLB/o/XXMRjFEZRD4P/OIMshC3Yhts", "manager"),
-    ('Nguyen Van C', 'c@example.com', "$argon2id$v=19$m=65536,t=3,p=4$34ow4scCWKefJbT7d7+Sfg$S8f80+LyYqIBgE2Iar1gqxzZf+OJ8sg+VfeQwiOmRWY", "customer"),
-    ('Nguyen Van D', 'd@example.com', "$argon2id$v=19$m=65536,t=3,p=4$766X2FajzJWpJcEBHd9BQA$Za5WCg+XUGN9gSl/2RG5lzNc55DUeHu407z+dYMWYAE", "manager");
+INSERT INTO Session (booking_id, court_id, time_from, time_to)
+VALUES
+(1, 1, '08:00:00', '10:00:00'),
+(2, 2, '13:00:00', '15:00:00'),
+(3, 3, '17:00:00', '18:00:00');
