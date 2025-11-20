@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 from models.auth_models import User_infor, LoginRequest
 from service.auth_ser import AuthService
 from repository.auth_repo import AuthRepo
+from service.jwt import jwt_services
+from models.jwt_models import Token
 
 app = FastAPI()
 db = connDB()
+jwt_services = jwt_services()
 
 @app.get("/test")
 def test():
@@ -32,7 +35,23 @@ def create_user(login_infor: LoginRequest, db_session: Session = Depends(db.get_
         if email is None or password is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email and password are required")
         
-        user, response = auth_service.login_user(email, password)
-        return {"user": user.__dict__, "response": response}
+        user, token, response = auth_service.login_user(email, password)
+        return {
+            "user": user,
+            "token": token,
+            "response": response}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
+@app.post("/test-token")
+def test_token(
+    token: str = Depends(jwt_services.oauth2_scheme),
+    db_session: Session = Depends(db.get_db)
+):
+    print("Received token:", token)
+    user_info = AuthService(db_session).get_current_user(token)
+    return {
+        "status": "success",
+        "message": "Token is valid",
+        "user": user_info
+    }

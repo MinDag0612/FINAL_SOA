@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from models.auth_models import User_infor
 from repository.auth_repo import AuthRepo
 from service.jwt import jwt_services
+from models.jwt_models import Token
 
 class AuthService:
     def __init__(self, db: Session):
@@ -17,7 +18,12 @@ class AuthService:
             if not password_valid:
                 raise Exception("Invalid password")
             user.pop('password')  # Remove password before returning
-            return User_infor(**user), {"status": "success", "message": "Login successful"}
+            token_data = {
+                "sub": str(user['user_id']),
+                "infor": user
+            }
+            token = self.jwt_service.create_access_token(data=token_data)
+            return user, token, {"status": "success", "message": "Login successful"}
         
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
@@ -31,3 +37,11 @@ class AuthService:
             return new_user, {"status": "success", "message": "User created successfully"}
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
+        
+    def get_current_user(self, token: str):
+        try:
+            return self.jwt_service.get_current_active_user(token, self.repo)
+        except Exception as e:
+            raise Exception(f"{e} -- from auth service")
+        
+    

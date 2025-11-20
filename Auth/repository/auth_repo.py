@@ -49,5 +49,18 @@ class AuthRepo:
         except Exception as e:
             raise Exception(f"{e} -- from auth repository")
         
+    def get_user_by_id(self, user_id: str):
+        query = text(
+            "SELECT * FROM User_Infor WHERE user_id = :user_id LIMIT 1"
+        )
+        try:
+            result = self.db.execute(query, {"user_id": user_id})
+            user_row = result.fetchone()
+            if user_row:
+                return user_row._asdict()
+            return None
+        except Exception as e:
+            raise Exception(f"{e} -- from auth repository")
+        
         
         

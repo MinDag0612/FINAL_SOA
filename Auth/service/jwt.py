@@ -5,6 +5,8 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
+from models.jwt_models import TokenData
+from repository.auth_repo import AuthRepo
 
 
 class jwt_services:
@@ -24,7 +26,7 @@ class jwt_services:
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
     
-    def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    def create_access_token(self, data: dict, expires_delta: timedelta | None = None):
         """Creates a new JWT access token."""
         to_encode = data.copy()
         if expires_delta:
@@ -32,5 +34,42 @@ class jwt_services:
         else:
             expire = datetime.now(timezone.utc) + timedelta(minutes=15)
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        encoded_jwt = jwt.encode(to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
         return encoded_jwt
+
+    def decode_access_token(self, token: str):
+        """Decodes a JWT access token."""
+        try:
+            payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
+            return payload
+        except JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    def get_current_active_user(self, token: str, repo: AuthRepo):
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+        try:
+            payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                raise credentials_exception
+        except JWTError:
+            raise credentials_exception
+
+        user = repo.get_user_by_id(user_id)
+        if user is None:
+            raise credentials_exception
+
+        # Nếu user không active thì lỗi
+        if "disabled" in user and user["disabled"]:
+            raise HTTPException(status_code=400, detail="Inactive user")
+
+        return user

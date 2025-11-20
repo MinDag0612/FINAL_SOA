@@ -8,3 +8,4 @@ class User_infor(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
