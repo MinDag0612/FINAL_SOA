@@ -8,7 +8,7 @@ class connDB:
         self.host = os.getenv("DB_HOST", "localhost")
         self.user = os.getenv("DB_USER", "root")
         self.password = os.getenv("DB_PASSWORD", "root")
-        self.database = os.getenv("DB_NAME", "DB_COURT")
+        self.database = os.getenv("DB_NAME", "DB_FACILITY")
         self.port = int(os.getenv("DB_PORT", 3306))
         
         self.DATABASE_URL = f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}?charset=utf8mb4"
