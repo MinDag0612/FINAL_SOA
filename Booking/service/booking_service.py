@@ -1,5 +1,5 @@
 from typing import List
-from models.booking_models import (
+from Booking.models.booking_models import (
     Booking,
     BookingCancelRequest,
     BookingCreate,

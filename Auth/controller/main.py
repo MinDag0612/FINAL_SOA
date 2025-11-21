@@ -1,17 +1,33 @@
 from fastapi import FastAPI, HTTPException, status, Depends
 
-
-from core.connDB import connDB
+from Auth.core.connDB import connDB
 from sqlalchemy.orm import Session
-from models.auth_models import User_infor, LoginRequest
-from service.auth_ser import AuthService
-from repository.auth_repo import AuthRepo
-from service.jwt import jwt_services
-from models.jwt_models import Token
+from Auth.models.auth_models import User_infor, LoginRequest
+from Auth.service.auth_ser import AuthService
+from Auth.repository.auth_repo import AuthRepo
+from jwt_shared.jwt import jwt_services
+from fastapi.security import OAuth2PasswordRequestForm
+from jwt_shared.jwt_models import Token
+from typing import Annotated
 
 app = FastAPI()
+
 db = connDB()
 jwt_services = jwt_services()
+
+@app.post("/token", response_model=Token)
+def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db_session: Session = Depends(db.get_db)):
+    user, _, _ = AuthService(db_session).login_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = jwt_services.create_access_token(
+        data={"sub": str(user['user_id'])}
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/test")
 def test():
@@ -43,15 +59,3 @@ def create_user(login_infor: LoginRequest, db_session: Session = Depends(db.get_
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
-@app.post("/test-token")
-def test_token(
-    token: str = Depends(jwt_services.oauth2_scheme),
-    db_session: Session = Depends(db.get_db)
-):
-    print("Received token:", token)
-    user_info = AuthService(db_session).get_current_user(token)
-    return {
-        "status": "success",
-        "message": "Token is valid",
-        "user": user_info
-    }

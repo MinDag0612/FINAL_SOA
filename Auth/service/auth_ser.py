@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session
-from models.auth_models import User_infor
-from repository.auth_repo import AuthRepo
-from service.jwt import jwt_services
-from models.jwt_models import Token
+from Auth.models.auth_models import User_infor
+from Auth.repository.auth_repo import AuthRepo
+from jwt_shared.jwt import jwt_services
 
 class AuthService:
     def __init__(self, db: Session):
@@ -38,10 +37,6 @@ class AuthService:
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
         
-    def get_current_user(self, token: str):
-        try:
-            return self.jwt_service.get_current_active_user(token, self.repo)
-        except Exception as e:
-            raise Exception(f"{e} -- from auth service")
+        
         
     

@@ -84,3 +84,29 @@ Client (React / API Gateway)
         ↓
 [ Repository Layer ]   ← Truy xuất và ghi dữ liệu DB
 
+HOW TO USE JWT
+
+- Khi deploy copy jwt_shared vào container
+- Copy lại
+jwt_services = jwt_services()
+
+def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
+    try:
+        payload = jwt_services.decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return payload  # hoặc chỉ return user_id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+vào file main, hàm nào cần auth mới được dùng thì thêm 
+
+            --Depends(get_current_user)--
+ví dụ 
+        @app.get("/health")
+        def health_check(user: dict = Depends(get_current_user)):
+
+nếu cần tất cả dùng --router--
+Jwt chưa data của user
+

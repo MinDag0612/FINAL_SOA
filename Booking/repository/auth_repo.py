@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
-from models.auth_models import User_infor
 from sqlalchemy import text
-from core.connDB import connDB
+from Booking.core.connDB import connDB
 
 
 class AuthRepo:

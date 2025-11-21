@@ -101,8 +101,8 @@ services:
   # =====================
   auth_api:
     build:
-      context: ./Auth
-      dockerfile: dockerfile
+      context: ./
+      dockerfile: Auth/dockerfile
     container_name: auth_service
     restart: always
     depends_on:
@@ -145,8 +145,8 @@ services:
   # =====================
   booking_api:
     build:
-      context: ./Booking
-      dockerfile: dockerfile
+      context: ./
+      dockerfile: Booking/dockerfile
     container_name: booking_service
     restart: always
     depends_on:
@@ -211,7 +211,9 @@ services:
   # API GATEWAY SERVICE
   # =====================
   apigateway:
-    build: ./APIGateway
+    build:
+      context: ./APIGateway
+      dockerfile: dockerfile
     container_name: api_gateway
     depends_on:
       - auth_api

@@ -12,15 +12,16 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip
 
 # Copy requirements trước để tận dụng cache
-COPY requirements.txt .
+COPY ./Auth/requirements.txt /app/requirements.txt
 
 # Cài đặt các dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy toàn bộ source code
-COPY . .
+COPY ./jwt_shared /app/jwt_shared
+COPY ./Auth /app/Auth
 
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["uvicorn", "controller.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+CMD ["uvicorn", "Auth.controller.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]

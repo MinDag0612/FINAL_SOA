@@ -5,8 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
-from models.jwt_models import TokenData
-from repository.auth_repo import AuthRepo
+
 
 
 class jwt_services:
@@ -49,7 +48,7 @@ class jwt_services:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    def get_current_active_user(self, token: str, repo: AuthRepo):
+    def get_current_active_user(self, token: str):
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -63,13 +62,6 @@ class jwt_services:
                 raise credentials_exception
         except JWTError:
             raise credentials_exception
+        return payload
 
-        user = repo.get_user_by_id(user_id)
-        if user is None:
-            raise credentials_exception
 
-        # Nếu user không active thì lỗi
-        if "disabled" in user and user["disabled"]:
-            raise HTTPException(status_code=400, detail="Inactive user")
-
-        return user

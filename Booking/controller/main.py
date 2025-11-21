@@ -1,17 +1,33 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from sqlalchemy.orm import Session
+from jwt_shared.jwt import jwt_services
 
-from core.connDB import connDB
-from models.booking_models import (
+from Booking.core.connDB import connDB
+from Booking.models.booking_models import (
     BookingCancelRequest,
     BookingCreate,
     BookingUpdate,
     PaymentStatusUpdate,
 )
-from service.booking_service import BookingService
+from Booking.service.booking_service import BookingService
 
 app = FastAPI()
+
+jwt_services = jwt_services()
+
+def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
+    try:
+        payload = jwt_services.decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return payload  # hoặc chỉ return user_id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
 db = connDB()
+
 
 
 def get_service() -> BookingService:
@@ -19,8 +35,12 @@ def get_service() -> BookingService:
 
 
 @app.get("/health")
-def health_check():
-    return {"status": "ok", "service": "booking"}
+def health_check(user: dict = Depends(get_current_user)):
+    return {
+        "status": "ok",
+        "service": "booking",
+        "user": user}
+
 
 
 @app.get("/db-test")

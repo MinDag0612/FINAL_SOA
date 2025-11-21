@@ -7,3 +7,5 @@ uvicorn
 pwdlib[argon2]
 pymysql
 cryptography
+typing
+python-multipart==0.0.6

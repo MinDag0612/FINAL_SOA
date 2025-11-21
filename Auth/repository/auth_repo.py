@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from models.auth_models import User_infor
+from Auth.models.auth_models import User_infor
 from sqlalchemy import text
-from core.connDB import connDB
+from Auth.core.connDB import connDB
 
 
 class AuthRepo:
