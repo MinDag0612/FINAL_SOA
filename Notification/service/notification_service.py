@@ -1,10 +1,11 @@
 from typing import List
-from models.notification_models import (
+from Notification.models.notification_models import (
     BookingConfirmedPayload,
     NotificationLog,
     NotificationSendRequest,
     ReminderPayload,
 )
+from Notification.core.mailler_api import send_email_v1
 
 
 class NotificationService:
@@ -18,6 +19,24 @@ class NotificationService:
             status="sent",
             sent_at="2024-06-20T08:00:00Z",
         )
+        
+        
+    def send_email_verify_register(self, user: dict):
+        # Gọi hàm gửi email từ mailler_api
+        try:
+            send_email_v1(
+                recipient=user["email"],
+                subject="Xác nhận đăng ký tài khoản" + str(user["fullname"]),
+                content="Cảm ơn bạn đã đăng ký tài khoản. Vui lòng xác nhận email của bạn.",
+            )
+            return {
+                "status": "sent",
+                "recipients": user,
+                "message": "Email xác nhận đã được gửi.",
+            }
+        except Exception as e:
+            raise Exception("Lỗi khi gửi email xác nhận: " + str(e) + " -- from notification service")
+        
 
     def send_custom(self, payload: NotificationSendRequest) -> dict:
         return {
