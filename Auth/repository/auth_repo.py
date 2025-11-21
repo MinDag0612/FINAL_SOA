@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from Auth.models.auth_models import User_infor
+from Auth.models.auth_models import New_User_infor
 from sqlalchemy import text
 from Auth.core.connDB import connDB
 
@@ -8,7 +8,7 @@ class AuthRepo:
     def __init__(self, db: Session):
         self.db = db
         
-    def insert_user(self, user_data: User_infor, password: str):
+    def insert_user(self, user_data: New_User_infor, password_hashed: str):
         query = text(
             """
             INSERT INTO User_Infor (fullname, email, password, role)
@@ -21,14 +21,14 @@ class AuthRepo:
                 {
                     "fullname": user_data.fullname,
                     "email": user_data.email,
-                    "password": password,
+                    "password": password_hashed,
                     "role": user_data.role,
                 }
             )
             
             self.db.commit() 
             
-            return result.rowcount 
+            return result 
             
         except Exception as e:
             self.db.rollback()
@@ -45,6 +45,8 @@ class AuthRepo:
         try:
             result = self.db.execute(query, {"email": email})
             user_row = result.fetchone()
+            if user_row is None:
+                return None
             return user_row._asdict()
         except Exception as e:
             raise Exception(f"{e} -- from auth repository")
@@ -61,6 +63,3 @@ class AuthRepo:
             return None
         except Exception as e:
             raise Exception(f"{e} -- from auth repository")
-        
-        
-        

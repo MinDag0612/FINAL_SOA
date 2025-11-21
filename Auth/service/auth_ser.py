@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from Auth.models.auth_models import User_infor
+from Auth.models.auth_models import User_infor, New_User_infor
 from Auth.repository.auth_repo import AuthRepo
 from jwt_shared.jwt import jwt_services
 
@@ -27,15 +27,20 @@ class AuthService:
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
         
-    def create_user(self, user: User_infor, password: str):
+    def create_user(self, user: New_User_infor):
         try:
+            user_exists = self.repo.get_user_by_email(user.email)
+            if user_exists:
+                raise Exception("User with this email already exists")
+            
             pass_hashed = self.jwt_service.get_hash(user.password)
             new_user = user.copy()
-            pass_hashed = self.jwt_service.get_hash(password)
+            pass_hashed = self.jwt_service.get_hash(user.password)
             self.repo.insert_user(new_user, pass_hashed)
-            return new_user, {"status": "success", "message": "User created successfully"}
+            return {"status": "success", "message": "User created successfully"}
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
+        
         
         
         
