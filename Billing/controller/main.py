@@ -1,14 +1,14 @@
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
-from core.connDB import connDB
-from models.billing_models import (
+from Billing.core.connDB import connDB
+from Billing.models.billing_models import (
     BillingHistoryParams,
     InvoiceCreate,
     PaymentRequest,
     PaymentWebhook,
 )
-from service.billing_service import BillingService
+from Billing.service.billing_service import BillingService
 
 app = FastAPI()
 db = connDB()

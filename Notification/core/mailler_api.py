@@ -18,14 +18,14 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googlea
 def send_email_v1(recipient, subject=None, content=None, port=0):
     try:
         creds = None
-        if os.path.exists('token.json'):
-            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        if os.path.exists('Notification/token.json'):
+            creds = Credentials.from_authorized_user_file('Notification/token.json', SCOPES)
 
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                flow = InstalledAppFlow.from_client_secrets_file('credentials_desktop_apps.json', SCOPES)
+                flow = InstalledAppFlow.from_client_secrets_file('Notification/credentials_desktop_apps.json', SCOPES)
                 creds = flow.run_local_server(port=port)  # https://dhpit.com/go/f5kizi
 
             # Save the credentials for the next run
