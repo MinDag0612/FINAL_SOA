@@ -22,6 +22,7 @@ class AuthService:
                 "infor": user
             }
             token = self.jwt_service.create_access_token(data=token_data)
+            
             return user, token, {"status": "success", "message": "Login successful"}
         
         except Exception as e:
