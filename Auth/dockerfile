@@ -21,7 +21,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY ./jwt_shared /app/jwt_shared
 COPY ./Auth /app/Auth
 
+COPY ./Auth/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["uvicorn", "Auth.controller.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+CMD ["./Auth/start.sh"]

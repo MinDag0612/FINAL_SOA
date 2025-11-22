@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, Query, HTTPException
+from fastapi import Depends, FastAPI, Query, HTTPException, Body
 from Notification.models.notification_models import (
     BookingConfirmedPayload,
     NotificationSendRequest,
@@ -7,6 +7,8 @@ from Notification.models.notification_models import (
 from Notification.service.notification_service import NotificationService
 from fastapi.exceptions import HTTPException as HttpException
 from jwt_shared.jwt import jwt_services
+import json, threading
+from Notification.message import consume_messages
 
 app = FastAPI()
 
@@ -34,14 +36,19 @@ def health_check():
 @app.post("/notification/send-email-verify-register")
 def send_email_verify_register(
     service: NotificationService = Depends(get_service),
-    user: dict = Depends(get_current_user)
+    user: dict = Body(...)
     ):
     # return user
     try:
-        return service.send_email_verify_register(user["infor"]), {"status": "success"}
+        return service.send_email_verify_register(user), {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e) + "-- from notification controller")
 
+@app.on_event("startup")
+def start_kafka_consumer():
+    # Chạy consumer trong thread riêng, không block FastAPI
+    thread = threading.Thread(target=consume_messages, daemon=True)
+    thread.start()
 
 
 
