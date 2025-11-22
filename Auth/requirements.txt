@@ -9,3 +9,4 @@ pymysql
 cryptography
 typing
 python-multipart==0.0.6
+kafka-python>=2.1.0

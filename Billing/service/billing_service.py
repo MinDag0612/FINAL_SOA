@@ -1,5 +1,5 @@
 from typing import List
-from models.billing_models import (
+from Billing.models.billing_models import (
     BillingHistoryParams,
     Invoice,
     InvoiceCreate,
