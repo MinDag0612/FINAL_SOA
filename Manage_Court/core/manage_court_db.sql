@@ -2,15 +2,18 @@ CREATE DATABASE IF NOT EXISTS DB_MANAGE_COURT;
 
 USE DB_MANAGE_COURT;
 
-DROP TABLE IF EXISTS Facility ;
+-- Drop child table first to avoid FK issues
+DROP TABLE IF EXISTS Court;
+DROP TABLE IF EXISTS Facility;
 
 CREATE TABLE Facility  (
     facility_id     INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,     -- owner
     facility_name   VARCHAR(200) NOT NULL,
     location        VARCHAR(255),
-    sport           VARCHAR(100),
-    description     TEXT
+    sport           VARCHAR(100) DEFAULT 'Badminton',
+    description     TEXT,
+    CHECK (sport = 'Badminton')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE Court (
@@ -26,21 +29,21 @@ CREATE TABLE Court (
 
 INSERT INTO Facility (user_id, facility_name, location, sport, description)
 VALUES
-(2, 'Sport Center A', 'Hanoi', 'Badminton', 'Main center with 4 courts'),
-(4, 'Sport Club B', 'HCMC', 'Tennis', 'Premium tennis courts'),
-(2, 'Sport Hub C', 'Da Nang', 'Football', '5v5 and 7v7 fields available');
+(2, 'Badminton Center A', 'Ha Noi', 'Badminton', 'Trung tâm 4 sân đạt chuẩn'),
+(4, 'Badminton Club B', 'HCMC', 'Badminton', 'Phòng máy lạnh, ánh sáng LED'),
+(2, 'Badminton Hub C', 'Da Nang', 'Badminton', 'Có phòng thay đồ và bãi xe');
 
 INSERT INTO Court (facility_id, court_name, price_per_hour, description)
 VALUES
 -- Facility 1
-(1, 'Badminton Court #1', 100000, 'Wood floor'),
-(1, 'Badminton Court #2', 100000, 'Wood floor'),
-(1, 'Badminton Court #3', 120000, 'Premium court'),
+(1, 'Badminton Court #1', 100000, 'Sàn PVC, tiêu chuẩn thi đấu'),
+(1, 'Badminton Court #2', 100000, 'Sàn PVC, ánh sáng LED'),
+(1, 'Badminton Court #3', 120000, 'Sàn gỗ, trần cao'),
 
 -- Facility 2
-(2, 'Tennis Court #1', 250000, 'Standard clay court'),
-(2, 'Tennis Court #2', 350000, 'Premium lighting'),
+(2, 'Badminton Court #1', 150000, 'Phòng lạnh, thảm mới'),
+(2, 'Badminton Court #2', 150000, 'Phòng lạnh, ánh sáng LED'),
 
 -- Facility 3
-(3, 'Football Field 5v5', 300000, 'Small field'),
-(3, 'Football Field 7v7', 450000, 'Large size field');
+(3, 'Badminton Court #1', 90000, 'Phù hợp tập luyện'),
+(3, 'Badminton Court #2', 90000, 'Ánh sáng tự nhiên');

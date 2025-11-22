@@ -203,7 +203,7 @@ services:
     build:
       context: ./
       dockerfile: Manage_Court/dockerfile
-    container_name: C_service
+    container_name: manage_court_service
     restart: always
     depends_on:
       - manage_court_db
