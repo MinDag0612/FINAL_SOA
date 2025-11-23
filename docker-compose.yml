@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   # =====================
@@ -65,18 +63,18 @@ services:
       - backend
 
   # =====================
-  # MANAGE COURT DB
+  # BOOKING DB
   # =====================
-  manage_court_db:
+  booking_db:
     image: mysql:8.0
-    container_name: manage_court_db
+    container_name: booking_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: DB_MANAGE_COURT
+      MYSQL_DATABASE: DB_BOOKING
     volumes:
-      - ./Manage_Court/core/manage_court_db.sql:/docker-entrypoint-initdb.d/init.sql
-      - manage_court_data:/var/lib/mysql
+      - ./Booking/core/booking_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - booking_data:/var/lib/mysql
     ports:
     - "3309:3306"
     networks:
@@ -124,25 +122,41 @@ services:
     networks:
       - backend
 
-
   # =====================
-  # BOOKING DB
+  # COURT DB
   # =====================
-  booking_db:
+  court_db:
     image: mysql:8.0
-    container_name: booking_db
+    container_name: court_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: DB_BOOKING
+      MYSQL_DATABASE: DB_COURT
     volumes:
-      - ./Booking/core/booking_db.sql:/docker-entrypoint-initdb.d/init.sql
-      - booking_data:/var/lib/mysql
+      - ./Court/core/court_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - court_data:/var/lib/mysql
     ports:
-    - "3308:3306"
+      - "3309:3306"
     networks:
       - backend
 
+  # =====================
+  # FACILITY DB
+  # =====================
+  facility_db:
+    image: mysql:8.0
+    container_name: facility_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: DB_FACILITY
+    volumes:
+      - ./Facility/core/facility_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - facility_data:/var/lib/mysql
+    ports:
+      - "3310:3306"
+    networks:
+      - backend
 
 
   # =====================
@@ -241,23 +255,48 @@ services:
   # =====================
   # COURT API
   # =====================
-  manage_court_api:
+  court_api:
     build:
       context: ./
-      dockerfile: Manage_Court/dockerfile
-    container_name: manage_court_service
+      dockerfile: Court/dockerfile
+    container_name: court_service
     restart: always
     depends_on:
-      - manage_court_db
+      - court_db
       - kafka
     environment:
-      DB_HOST: manage_court_db
+      DB_HOST: court_db
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: root
-      DB_NAME: DB_MANAGE_COURT
+      DB_NAME: DB_COURT
     ports:
       - "8004:8004"
+    volumes:
+      - ./:/app
+    networks:
+      - backend
+
+  # =====================
+  # FACILITY API
+  # =====================
+  facility_api:
+    build:
+      context: ./
+      dockerfile: Facility/dockerfile
+    container_name: facility_service
+    restart: always
+    depends_on:
+      - facility_db
+      - kafka
+    environment:
+      DB_HOST: facility_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: DB_FACILITY
+    ports:
+      - "8005:8005"
     volumes:
       - ./:/app
     networks:
@@ -342,7 +381,8 @@ networks:
 volumes:
   auth_data:
   bill_data:
-  manage_court_data:
+  court_data:
+  facility_data:
   booking_data:
   session_data:
   facility_data:

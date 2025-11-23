@@ -1,28 +1,33 @@
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
 class FacilityBase(BaseModel):
-    facility_name: str
     user_id: int
-    location: Optional[str] = None
-    sport: Optional[str] = "Badminton"
-    amenities: Optional[list[str]] = None
+    name: str
+    address: str
+    sport: Optional[str] = None
     description: Optional[str] = None
+    opening_hours: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 
 class FacilityCreate(FacilityBase):
-    pass
+    amenities: List[str] = []
 
 
 class FacilityUpdate(BaseModel):
-    facility_name: Optional[str] = None
-    user_id: Optional[int] = None
-    location: Optional[str] = None
+    name: Optional[str] = None
+    address: Optional[str] = None
     sport: Optional[str] = None
-    amenities: Optional[list[str]] = None
     description: Optional[str] = None
+    opening_hours: Optional[str] = None
+    contact_phone: Optional[str] = None
+    amenities: Optional[List[str]] = None
+    is_active: Optional[bool] = None
 
 
 class Facility(FacilityBase):
     facility_id: int
+    amenities: List[str] = []
+    is_active: bool = True
