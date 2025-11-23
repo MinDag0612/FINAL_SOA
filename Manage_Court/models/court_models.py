@@ -4,37 +4,50 @@ from pydantic import BaseModel
 
 class CourtBase(BaseModel):
     facility_id: int
-    name: str
-    surface_type: Optional[str] = None
-    hourly_rate: Optional[float] = None
+    court_name: str
+    price_per_hour: float
     description: Optional[str] = None
 
 
 class CourtCreate(CourtBase):
-    available_hours: List[str] = []
+    pass
 
 
 class CourtUpdate(BaseModel):
     facility_id: Optional[int] = None
-    name: Optional[str] = None
-    surface_type: Optional[str] = None
-    hourly_rate: Optional[float] = None
+    court_name: Optional[str] = None
+    price_per_hour: Optional[float] = None
     description: Optional[str] = None
-    available_hours: Optional[List[str]] = None
-    is_active: Optional[bool] = None
 
 
 class Court(CourtBase):
     court_id: int
-    available_hours: List[str] = []
-    is_active: bool = True
 
 
-class CourtAvailabilityRequest(BaseModel):
-    date: str
+class AvailabilityRequest(BaseModel):
+    date: str  # YYYY-MM-DD
+    start: str = "06:00"
+    end: str = "22:00"
+    slot_minutes: int = 60
 
 
-class CourtAvailability(BaseModel):
+class Slot(BaseModel):
+    start: str
+    end: str
+
+
+class MaintenanceBase(BaseModel):
+    date: str  # YYYY-MM-DD
+    start_time: str  # HH:MM
+    end_time: str  # HH:MM
+    reason: Optional[str] = None
+    status: Optional[str] = "scheduled"
+
+
+class MaintenanceCreate(MaintenanceBase):
+    pass
+
+
+class MaintenanceEntry(MaintenanceBase):
+    maintenance_id: int
     court_id: int
-    date: str
-    available_slots: List[str]
