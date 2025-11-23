@@ -13,8 +13,8 @@ COPY ./Notification /app/Notification
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 
-
+ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["uvicorn", "Notification.controller.main:app", "--host", "0.0.0.0", "--port", "8007", "--reload"]
+CMD ["./Notification/start.sh"]
