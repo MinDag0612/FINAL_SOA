@@ -7,7 +7,3 @@ uvicorn
 pwdlib[argon2]
 pymysql
 cryptography
-typing
-python-multipart==0.0.6
-httpx==0.27.2
-kafka-python>=2.1.0
