@@ -1,7 +1,5 @@
 FROM python:3.11-slim
 
-WORKDIR /app
-
 # Cài đặt các thư viện hệ thống cần thiết
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -12,17 +10,18 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip
 
 # Copy requirements trước để tận dụng cache
-
 COPY ./Manage_Court/requirements.txt /app/requirements.txt
 # Cài đặt các dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy toàn bộ source code
-
 COPY ./Manage_Court /app/Manage_Court
 COPY ./jwt_shared /app/jwt_shared
+
+# Đặt working dir để import core/... không lỗi
+WORKDIR /app/Manage_Court
 
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["uvicorn", "Manage_Court.controller.main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]
+CMD ["uvicorn", "controller.main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]
