@@ -1,19 +1,20 @@
+from datetime import datetime
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-BookingStatus = Literal["pending", "confirmed", "cancelled", "completed"]
+BookingStatus = Literal["pending", "confirmed", "cancelled", "completed", "expired"]
 
 
 class BookingItem(BaseModel):
     court_id: int
-    start_time: str
-    end_time: str
+    start_time: datetime
+    end_time: datetime
     price: float
 
 
 class BookingCreate(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     facility_id: int
     items: List[BookingItem]
     payment_method: str = Field(default="cash")
@@ -21,7 +22,6 @@ class BookingCreate(BaseModel):
 
 
 class BookingUpdate(BaseModel):
-    items: Optional[List[BookingItem]] = None
     status: Optional[BookingStatus] = None
     note: Optional[str] = None
 
@@ -33,6 +33,11 @@ class Booking(BaseModel):
     user_id: int
     facility_id: int
     items: List[BookingItem]
+    payment_status: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    hold_expires_at: Optional[datetime] = None
+    paid_at: Optional[datetime] = None
 
 
 class BookingCancelRequest(BaseModel):
