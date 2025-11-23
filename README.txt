@@ -110,3 +110,17 @@ ví dụ
 nếu cần tất cả dùng --router--
 Jwt chưa data của user
 
+HOW TO USE Kafka
+    1. copy file message dán vào service đó
+
+    2. **send_event** là hàm để gửi data topic như tên hòm thư, data là thông tin gửi đi
+    -> Khi nào dùng gọi lại, khong cần chạy thường xuyên
+
+    3. **consume_messages** là hàm liệt kê và ánh xạ các topic <-> định nghĩa hàm phục vụ
+    -> Cần chạy suốt đề nghe từ hộp thư nên phải có **@app.on_event("startup")** trong file main và định nghĩa **start_kafka_consumer**
+
+Lí do nó vẫn đáp ứng độc lập:
+    - Có thể gửi bình thường mà không có bên nhận
+    - Kafka được chạy ở một domain riêng không gọi là service. Đây là nơi luu và xử lí topic + data
+    - Khi gửi khong gửi đối tượng hay hàm mà chỉ gửi data. Khong bị coupling
+

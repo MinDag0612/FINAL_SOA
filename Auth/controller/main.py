@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jwt_shared.jwt_models import Token
 from typing import Annotated
 from Auth.models.auth_models import New_User_infor
+from Auth.message import send_event
 
 app = FastAPI()
 
@@ -53,6 +54,7 @@ def create_user(login_infor: LoginRequest, db_session: Session = Depends(db.get_
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email and password are required")
         
         user, token, response = auth_service.login_user(email, password)
+        
         return {
             "user": user,
             "token": token,
@@ -71,7 +73,11 @@ def register_user(user_infor: New_User_infor, db_session: Session = Depends(db.g
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role must be either 'manager' or 'customer'")
         
         response = auth_service.create_user(user_infor)
-        
+        send_event("user.signup", {
+            "email": user_infor.email,
+            "fullname": user_infor.fullname,
+            "role": user_infor.role
+        })
         return {
             "response": response
         }
