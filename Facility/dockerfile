@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+# Cài đặt gói hệ thống cần thiết
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libffi-dev \
+    libssl-dev \
+    && apt-get clean
+
+RUN pip install --upgrade pip
+
+# Cài đặt dependencies
+COPY Facility/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy source
+COPY Facility /app/Facility
+COPY jwt_shared /app/jwt_shared
+
+WORKDIR /app/Facility
+
+EXPOSE 8005
+
+CMD ["uvicorn", "controller.main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"]

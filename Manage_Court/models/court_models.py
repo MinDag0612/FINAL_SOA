@@ -22,3 +22,32 @@ class CourtUpdate(BaseModel):
 
 class Court(CourtBase):
     court_id: int
+
+
+class AvailabilityRequest(BaseModel):
+    date: str  # YYYY-MM-DD
+    start: str = "06:00"
+    end: str = "22:00"
+    slot_minutes: int = 60
+
+
+class Slot(BaseModel):
+    start: str
+    end: str
+
+
+class MaintenanceBase(BaseModel):
+    date: str  # YYYY-MM-DD
+    start_time: str  # HH:MM
+    end_time: str  # HH:MM
+    reason: Optional[str] = None
+    status: Optional[str] = "scheduled"
+
+
+class MaintenanceCreate(MaintenanceBase):
+    pass
+
+
+class MaintenanceEntry(MaintenanceBase):
+    maintenance_id: int
+    court_id: int

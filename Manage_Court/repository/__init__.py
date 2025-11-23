@@ -1,1 +1,1 @@
-"""Repository package for Manage_Court service."""
+"""Repository package for court service."""

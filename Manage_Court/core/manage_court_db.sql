@@ -2,36 +2,27 @@ CREATE DATABASE IF NOT EXISTS DB_MANAGE_COURT;
 
 USE DB_MANAGE_COURT;
 
--- Drop child table first to avoid FK issues
+-- Court service giữ riêng bảng Court; facility_id là tham chiếu logic
+DROP TABLE IF EXISTS CourtMaintenance;
 DROP TABLE IF EXISTS Court;
-DROP TABLE IF EXISTS Facility;
-
-CREATE TABLE Facility  (
-    facility_id     INT AUTO_INCREMENT PRIMARY KEY,
-    user_id         INT NOT NULL,     -- owner
-    facility_name   VARCHAR(200) NOT NULL,
-    location        VARCHAR(255),
-    sport           VARCHAR(100) DEFAULT 'Badminton',
-    description     TEXT,
-    CHECK (sport = 'Badminton')
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE Court (
     court_id        INT AUTO_INCREMENT PRIMARY KEY,
     facility_id     INT NOT NULL,
     court_name      VARCHAR(200) NOT NULL,
     price_per_hour  DECIMAL(10,2) NOT NULL,
-    description     TEXT,
+    description     TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    CONSTRAINT fk_court_facility
-        FOREIGN KEY (facility_id) REFERENCES Facility(facility_id)
-);
-
-INSERT INTO Facility (user_id, facility_name, location, sport, description)
-VALUES
-(2, 'Badminton Center A', 'Ha Noi', 'Badminton', 'Trung tâm 4 sân đạt chuẩn'),
-(4, 'Badminton Club B', 'HCMC', 'Badminton', 'Phòng máy lạnh, ánh sáng LED'),
-(2, 'Badminton Hub C', 'Da Nang', 'Badminton', 'Có phòng thay đồ và bãi xe');
+CREATE TABLE CourtMaintenance (
+    maintenance_id       INT AUTO_INCREMENT PRIMARY KEY,
+    court_id             INT NOT NULL,
+    date                 DATE NOT NULL,
+    start_time           TIME NOT NULL,
+    end_time             TIME NOT NULL,
+    reason               VARCHAR(255),
+    status               VARCHAR(50) DEFAULT 'scheduled'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO Court (facility_id, court_name, price_per_hour, description)
 VALUES
@@ -47,3 +38,7 @@ VALUES
 -- Facility 3
 (3, 'Badminton Court #1', 90000, 'Phù hợp tập luyện'),
 (3, 'Badminton Court #2', 90000, 'Ánh sáng tự nhiên');
+
+INSERT INTO CourtMaintenance (court_id, date, start_time, end_time, reason, status) VALUES
+(1, '2024-07-01', '10:00', '12:00', 'Vệ sinh sân', 'scheduled'),
+(2, '2024-07-01', '08:00', '09:00', 'Bảo trì đèn', 'scheduled');

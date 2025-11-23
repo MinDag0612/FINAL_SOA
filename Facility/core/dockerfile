@@ -1,0 +1,8 @@
+FROM mysql:8.0
+
+# Thiết lập mặc định cho DB facility
+ENV MYSQL_ROOT_PASSWORD=root
+ENV MYSQL_DATABASE=DB_FACILITY
+
+# Nạp script khởi tạo
+COPY facility_db.sql /docker-entrypoint-initdb.d/
