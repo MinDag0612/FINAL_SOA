@@ -21,7 +21,7 @@ class NotificationService:
         )
         
         
-    def send_email_verify_register(self, user: dict):
+    def send_email_verify_register(user: dict):
         # Gọi hàm gửi email từ mailler_api
         try:
             send_email_v1(
