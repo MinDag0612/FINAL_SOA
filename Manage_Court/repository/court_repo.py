@@ -8,16 +8,21 @@ class CourtRepo:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_courts(self) -> List[dict]:
-        result = self.db.execute(
-            text(
-                """
-                SELECT court_id, facility_id, court_name, price_per_hour, description
-                FROM Court
-                ORDER BY court_id
-                """
-            )
-        )
+    def list_courts(
+        self, facility_id: Optional[int] = None, limit: int = 100, offset: int = 0
+    ) -> List[dict]:
+        query = """
+            SELECT court_id, facility_id, court_name, price_per_hour, description
+            FROM Court
+        """
+        params: dict = {}
+        if facility_id is not None:
+            query += " WHERE facility_id = :facility_id"
+            params["facility_id"] = facility_id
+        query += " ORDER BY court_id LIMIT :limit OFFSET :offset"
+        params.update({"limit": limit, "offset": offset})
+
+        result = self.db.execute(text(query), params)
         return [dict(row._mapping) for row in result]
 
     def get_court(self, court_id: int) -> Optional[dict]:
