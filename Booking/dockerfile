@@ -21,8 +21,7 @@ COPY ./jwt_shared /app/jwt_shared
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 
-
-EXPOSE 8000
+EXPOSE 8003
 
 # Chạy ứng dụng bằng uvicorn
 CMD ["uvicorn", "Booking.controller.main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]

@@ -18,7 +18,7 @@ def get_service() -> BillingService:
     return BillingService()
 
 
-@app.get("/health")
+@app.get("/")
 def health_check():
     return {"status": "ok", "service": "billing"}
 

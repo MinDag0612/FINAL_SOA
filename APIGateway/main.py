@@ -10,7 +10,8 @@ SERVICE_URLS = {
     "session": "http://session_api:8006",
     "billing": "http://billing_api:8002",
     "booking": "http://booking_api:8003",
-    "court": "http://manage_court_api:8004",
+    "court": "http://court_api:8004",
+    "facility": "http://facility_api:8005",
 }
 
 @app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
