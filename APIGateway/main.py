@@ -5,10 +5,11 @@ from fastapi.responses import Response
 app = FastAPI()
 
 # Định nghĩa các service backend
+# Lưu ý: một số service có prefix cố định (vd: billing sử dụng /billing/...).
 SERVICE_URLS = {
     "auth": "http://auth_api:8001",
     "session": "http://session_api:8006",
-    "billing": "http://billing_api:8002",
+    "billing": "http://billing_api:8002/billing",
     "booking": "http://booking_api:8003",
     "court": "http://court_api:8004",
     "facility": "http://facility_api:8005",
