@@ -27,4 +27,4 @@ RUN chmod +x /app/start.sh
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["./Auth/start.sh"]
+CMD ["bash", "/app/Auth/start.sh"]

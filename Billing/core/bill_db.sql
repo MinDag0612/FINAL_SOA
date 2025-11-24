@@ -2,18 +2,27 @@ CREATE DATABASE IF NOT EXISTS DB_BILL;
 
 USE DB_BILL;
 
-DROP TABLE IF EXISTS Billing;
+DROP TABLE IF EXISTS invoices;
 
-CREATE TABLE Billing (
-    user_id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) UNIQUE,
-    fullname VARCHAR(255),
-    password VARCHAR(255),
-    role VARCHAR(50)
+CREATE TABLE invoices (
+    invoice_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    user_id INT NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'VND',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    payment_method VARCHAR(50),
+    payment_url TEXT,
+    payment_reference VARCHAR(100),
+    vnp_txn_ref VARCHAR(100),
+    vnp_response_code VARCHAR(10),
+    vnp_transaction_no VARCHAR(50),
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO Billing(fullname, email, password, role) VALUES
-    ('Nguyen Van A', 'a@example.com', "$argon2id$v=19$m=65536,t=3,p=4$OwsLMT80myAmcpb5/mpRQg$nFwmpRb9bZFk+Uz01870g2Q/85VORlYrrIUk33/FqEI", "customer"),
-    ('Nguyen Van B', 'b@example.com', "$argon2id$v=19$m=65536,t=3,p=4$v1JvpId+k7ZlUpIGpgsfzA$Ttiu6vn0hCid0uLB/o/XXMRjFEZRD4P/OIMshC3Yhts", "manager"),
-    ('Nguyen Van C', 'c@example.com', "$argon2id$v=19$m=65536,t=3,p=4$34ow4scCWKefJbT7d7+Sfg$S8f80+LyYqIBgE2Iar1gqxzZf+OJ8sg+VfeQwiOmRWY", "customer"),
-    ('Nguyen Van D', 'd@example.com', "$argon2id$v=19$m=65536,t=3,p=4$766X2FajzJWpJcEBHd9BQA$Za5WCg+XUGN9gSl/2RG5lzNc55DUeHu407z+dYMWYAE", "manager");
+INSERT INTO invoices (booking_id, user_id, amount, currency, status, payment_method)
+VALUES
+(1, 1, 150000, 'VND', 'paid', 'cash'),
+(2, 2, 250000, 'VND', 'pending', 'vnpay');

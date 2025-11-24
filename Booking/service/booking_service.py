@@ -175,7 +175,7 @@ class BookingService:
             return resp.json()
 
     def _initiate_payment(self, invoice_id: int, booking: Booking, method: str) -> Optional[dict]:
-        payload = {"method": method}
+        payload = {"method": method, "booking_id": booking.booking_id}
         with httpx.Client(timeout=5.0) as client:
             resp = client.post(f"{self.billing_service_url}/billing/{invoice_id}/pay", json=payload)
             resp.raise_for_status()

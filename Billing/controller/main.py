@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from Billing.core.connDB import connDB
@@ -14,8 +14,8 @@ app = FastAPI()
 db = connDB()
 
 
-def get_service() -> BillingService:
-    return BillingService()
+def get_service(session: Session = Depends(db.get_db)) -> BillingService:
+    return BillingService(session)
 
 
 @app.get("/")
@@ -45,6 +45,18 @@ def pay_invoice(
     return service.initiate_payment(invoice_id, payload)
 
 
+@app.get("/billing/vnpay/return")
+def vnpay_return(request: Request, service: BillingService = Depends(get_service)):
+    params = dict(request.query_params)
+    return service.handle_return(params)
+
+
+@app.get("/billing/vnpay/ipn")
+def vnpay_ipn(request: Request, service: BillingService = Depends(get_service)):
+    params = dict(request.query_params)
+    return service.handle_ipn(params)
+
+
 @app.post("/billing/{invoice_id}/webhook")
 def billing_webhook(
     invoice_id: int,
@@ -66,4 +78,3 @@ def db_test():
     if db.test_query():
         return {"status": "success", "message": "Database connection successful"}
     raise HTTPException(status_code=500, detail="Database connection failed")
-

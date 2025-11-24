@@ -21,6 +21,7 @@ class Invoice(BaseModel):
 
 class PaymentRequest(BaseModel):
     method: str
+    booking_id: int
     return_url: Optional[str] = None
 
 
