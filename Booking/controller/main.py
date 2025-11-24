@@ -61,7 +61,7 @@ def create_booking(
     user: dict = Depends(get_current_user),
 ):
     payload_with_user = payload.model_copy(update={"user_id": int(user["sub"])})
-    return {"status": "success", "data": service.create_booking(payload_with_user)}
+    return {"status": "success", "data": service.create_booking(payload_with_user, user["infor"]["email"])}
 
 
 @app.get("/booking/{booking_id}")

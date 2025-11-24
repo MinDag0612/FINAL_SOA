@@ -17,7 +17,7 @@ class jwt_services:
     pwd_context = PasswordHash.recommended()
 
     # OAuth2 Scheme
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
     
     def get_hash(self, password: str):
         return self.pwd_context.hash(password)

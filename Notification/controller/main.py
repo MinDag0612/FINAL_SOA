@@ -43,6 +43,18 @@ def send_email_verify_register(
         return service.send_email_verify_register(user), {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e) + "-- from notification controller")
+    
+@app.post("/notification/send-booking-confirmed")
+def send_booking_confirmed(
+    service: NotificationService = Depends(get_service),
+    booking_infor: BookingConfirmedPayload = None
+    ):
+    
+    try:
+        return service.booking_confirmed(booking_infor.__dict__), {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e) + "-- from notification controller")
+
 
 @app.on_event("startup")
 def start_kafka_consumer():
@@ -50,36 +62,3 @@ def start_kafka_consumer():
     thread = threading.Thread(target=consume_messages, daemon=True)
     thread.start()
 
-
-
-
-@app.post("/notification/send")
-def send_notification(
-    payload: NotificationSendRequest,
-    service: NotificationService = Depends(get_service),
-):
-    return service.send_custom(payload)
-
-
-@app.post("/notification/booking-confirmed")
-def booking_confirmed(
-    payload: BookingConfirmedPayload,
-    service: NotificationService = Depends(get_service),
-):
-    return service.booking_confirmed(payload)
-
-
-@app.post("/notification/reminder")
-def send_reminder(
-    payload: ReminderPayload, service: NotificationService = Depends(get_service)
-):
-    return service.reminder(payload)
-
-
-@app.get("/notification/logs")
-def get_logs(
-    user_email: str = Query(..., description="Email người dùng"),
-    limit: int = Query(10, ge=1, le=100),
-    service: NotificationService = Depends(get_service),
-):
-    return {"status": "success", "data": service.logs(user_email, limit)}

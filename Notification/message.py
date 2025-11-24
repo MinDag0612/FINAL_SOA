@@ -39,11 +39,13 @@ def consume_messages():
     # Subcribe nhiều topic
     consumer.subscribe([
         "user.signup",
+        "booking.confirmed"
     ])
 
     # Bảng ánh xạ topic → hàm xử lý
     topic_handlers = {
         "user.signup": NotificationService.send_email_verify_register,
+        "booking.confirmed" : NotificationService.booking_confirmed,
     }
 
     for msg in consumer:
@@ -56,6 +58,3 @@ def consume_messages():
                 print(f"[ERROR] Handler failed: {e}")
         else:
             print(f"[Kafka] No handler configured for topic: {msg.topic}")
-
-
-
