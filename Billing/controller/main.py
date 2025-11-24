@@ -57,6 +57,18 @@ def vnpay_ipn(request: Request, service: BillingService = Depends(get_service)):
     return service.handle_ipn(params)
 
 
+@app.post("/billing/sepay/ipn")
+async def sepay_ipn(request: Request, service: BillingService = Depends(get_service)):
+    body = await request.json()
+    return service.handle_sepay_ipn(body)
+
+
+@app.get("/billing/sepay/return")
+def sepay_return(request: Request, service: BillingService = Depends(get_service)):
+    params = dict(request.query_params)
+    return service.handle_sepay_return(params)
+
+
 @app.post("/billing/{invoice_id}/webhook")
 def billing_webhook(
     invoice_id: int,
