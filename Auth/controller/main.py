@@ -83,6 +83,4 @@ def register_user(user_infor: New_User_infor, db_session: Session = Depends(db.g
         }
         
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e) + " -- from main controller")
-        
-        
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e) + " -- from main controller")    

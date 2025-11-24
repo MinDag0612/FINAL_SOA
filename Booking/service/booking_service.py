@@ -40,7 +40,7 @@ class BookingService:
             raise HTTPException(status_code=403, detail="Forbidden")
         return booking
 
-    def create_booking(self, payload: BookingCreate) -> dict:
+    def create_booking(self, payload: BookingCreate, email: str) -> dict:
         self.repo.cleanup_expired_holds()
         if payload.user_id is None:
             raise HTTPException(status_code=400, detail="Missing user_id for booking")
@@ -74,6 +74,13 @@ class BookingService:
         except Exception as exc:
             billing_error = str(exc)
 
+        
+        send_event("booking.confirmed", {
+            "booking_id": booking.booking_id,
+            "facility_id": booking.facility_id,
+            "user_id": booking.user_id,
+            "email": email
+        })
         return {
             "booking": booking,
             "invoice": invoice,
@@ -197,7 +204,7 @@ class BookingService:
                     for item in booking.items
                 ],
             }
-            send_event("BOOKING_CONFIRMED", event_payload)
+            # send_event("BOOKING_CONFIRMED", event_payload)
         except Exception:
             # Swallow errors so payment callback does not fail
             pass
