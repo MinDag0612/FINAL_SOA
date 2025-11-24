@@ -76,49 +76,7 @@ services:
       - ./Booking/core/booking_db.sql:/docker-entrypoint-initdb.d/init.sql
       - booking_data:/var/lib/mysql
     ports:
-    - "3309:3306"
-    networks:
-      - backend
-
-  # =====================
-  # FACILITY DB 
-  # =====================
-  facility_db:
-    build:
-      context: ./Facility/core
-      dockerfile: dockerfile
-    container_name: facility_db
-    restart: always
-    volumes:
-      - facility_data:/var/lib/mysql
-    ports:
-    - "3310:3306"
-    networks:
-      - backend
-
-  # =====================
-  # FACILITY API
-  # =====================
-  facility_api:
-    build:
-      context: ./
-      dockerfile: Facility/dockerfile
-    container_name: facility_service
-    restart: always
-    depends_on:
-      - facility_db
-    env_file:
-      - Facility/core/.env
-    environment:
-      DB_HOST: ${DB_HOST:-facility_db}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-root}
-      DB_NAME: ${DB_NAME:-DB_FACILITY}
-    ports:
-      - "8005:8005"
-    volumes:
-      - ./:/app
+    - "3308:3306"
     networks:
       - backend
 
@@ -214,12 +172,23 @@ services:
     depends_on:
       - bill_db
       - kafka
+    env_file:
+      - Billing/core/.env
     environment:
       DB_HOST: bill_db
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: root
       DB_NAME: DB_BILL
+      VNP_TMNCODE: ${VNP_TMNCODE:-8HHHFPP3}
+      VNP_HASHSECRET: ${VNP_HASHSECRET:-6GXPD4W05OL803TL0N324L6S2PCL7E5O}
+      VNP_URL: ${VNP_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VNP_RETURNURL: ${VNP_RETURNURL:-http://localhost:8002/billing/vnpay/return}
+      VNP_IPNURL: ${VNP_IPNURL:-http://localhost:8002/billing/vnpay/ipn}
+      VNP_EXPIRE_MINUTES: ${VNP_EXPIRE_MINUTES:-15}
+      VNP_ORDER_TYPE: ${VNP_ORDER_TYPE:-other}
+      BOOKING_SERVICE_URL: ${BOOKING_SERVICE_URL:-http://booking_api:8003}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
     ports:
       - "8002:8002"
     volumes:
@@ -385,4 +354,3 @@ volumes:
   facility_data:
   booking_data:
   session_data:
-  facility_data:
