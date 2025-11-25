@@ -11,11 +11,20 @@ from jwt_shared.jwt_models import Token
 from typing import Annotated
 from Auth.models.auth_models import New_User_infor
 from Auth.message import send_event
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 db = connDB()
 jwt_services = jwt_services()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],             # hoặc chỉ định domain nào được phép
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/token", response_model=Token)
 def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db_session: Session = Depends(db.get_db)):
