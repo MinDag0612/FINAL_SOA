@@ -35,7 +35,6 @@ def create_invoice(
 def get_invoice(invoice_id: int, service: BillingService = Depends(get_service)):
     return {"status": "success", "data": service.get_invoice(invoice_id)}
 
-
 @app.post("/billing/{invoice_id}/pay")
 def pay_invoice(
     invoice_id: int,
@@ -44,17 +43,16 @@ def pay_invoice(
 ):
     return service.initiate_payment(invoice_id, payload)
 
+@app.post("/billing/sepay/ipn")
+async def sepay_ipn(request: Request, service: BillingService = Depends(get_service)):
+    body = await request.json()
+    return service.handle_sepay_ipn(body)
 
-@app.get("/billing/vnpay/return")
-def vnpay_return(request: Request, service: BillingService = Depends(get_service)):
+
+@app.get("/billing/sepay/return")
+def sepay_return(request: Request, service: BillingService = Depends(get_service)):
     params = dict(request.query_params)
-    return service.handle_return(params)
-
-
-@app.get("/billing/vnpay/ipn")
-def vnpay_ipn(request: Request, service: BillingService = Depends(get_service)):
-    params = dict(request.query_params)
-    return service.handle_ipn(params)
+    return service.handle_sepay_return(params)
 
 
 @app.post("/billing/{invoice_id}/webhook")

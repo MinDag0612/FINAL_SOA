@@ -6,9 +6,10 @@
 Các bước
 1) Đăng nhập (Auth)  
    `POST /auth/login` với body `{"email":"<email>","password":"<pass>"}` → nhận `token`.
+   
 2) Xem danh sách cơ sở (Facility)  
-
    `GET /facility` → chọn `facility_id`.
+
 3) Xem danh sách sân (Court)  
    `GET /court` (hoặc `/court/{id}/availability?date=YYYY-MM-DD`) → chọn `court_id` và khung giờ.
 

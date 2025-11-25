@@ -104,6 +104,16 @@ class BookingService:
         cancelled = self.repo.cancel_booking(booking_id, payload.reason)
         if not cancelled:
             raise HTTPException(status_code=404, detail="Booking not found")
+        # Nếu có hóa đơn, báo sang Billing để hủy invoice/payment
+        if cancelled.payment_reference:
+            try:
+                with httpx.Client(timeout=5.0) as client:
+                    client.post(
+                        f"{self.billing_service_url}/billing/{cancelled.payment_reference}/webhook",
+                        json={"event": "cancel", "payload": {"reason": payload.reason or "user_cancel"}},
+                    )
+            except Exception:
+                pass
         return cancelled
 
     def update_payment_status(self, booking_id: int, payload: PaymentStatusUpdate) -> Booking:

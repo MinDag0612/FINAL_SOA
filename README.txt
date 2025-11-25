@@ -67,6 +67,17 @@ Trong Docker network, các service kết nối database bằng tên container (a
 
 ---------------------------------------------------------------------------------------------
 
+Front-end
+************************************************************************************************
+- Nginx phục vụ UI tĩnh ở port 80. Truy cập:
+  - Trang đăng nhập/đăng ký: http://localhost/ui/Login/Login.html
+  - Trang dashboard khách hàng: http://localhost/ui/Homepage/homepage.html
+- API từ UI gọi qua Nginx cùng cổng 80 (base: http://localhost), các path /auth/, /booking/, /billing/, /court/, /facility/, /session/ đã được proxy sẵn tới API Gateway.
+- Nếu dùng cổng public/ngrok cho SePay, cấu hình front:
+  - `localStorage.soa_payment_method = "sepay"`
+  - `localStorage.soa_return_url = "https://hyperpathetic-fugally-erin.ngrok-free.dev/ui/Homepage/homepage.html"` (hoặc domain ngrok bạn đang dùng)
+  - `localStorage.soa_api_base = "http://localhost"` (gọi API qua Nginx nội bộ)
+
 3. Cấu trúc folder service
 ************************************************************************************************
 service_name/
@@ -123,4 +134,3 @@ Lí do nó vẫn đáp ứng độc lập:
     - Có thể gửi bình thường mà không có bên nhận
     - Kafka được chạy ở một domain riêng không gọi là service. Đây là nơi luu và xử lí topic + data
     - Khi gửi khong gửi đối tượng hay hàm mà chỉ gửi data. Khong bị coupling
-
