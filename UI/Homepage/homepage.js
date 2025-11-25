@@ -3,7 +3,8 @@ const pageTitle = document.getElementById("page-title");
 
 const START_HOUR = 0;
 const END_HOUR = 24;
-const HOURLY_RATE = 50000;
+const DEFAULT_VIEW_HOUR = 8; // giờ mặc định khi load vào
+const HOURLY_RATE = 50000; // giá mỗi ô (1 giờ)
 const DEFAULT_PAYMENT_METHOD = localStorage.getItem("soa_payment_method") || "sepay"; // sepay|vnpay
 const PAYMENT_RETURN_URL =
   localStorage.getItem("soa_return_url") || `${window.location.origin}/ui/Homepage/homepage.html`;
@@ -21,7 +22,7 @@ let state = {
   facilities: [],
   selectedFacilityId: SAVED_FACILITY,
   selectedDate: SAVED_DATE,
-  selectedSlot: null,
+  selectedSlots: [],
   userProfile: {
     id: null,
     name: "Khách hàng",
@@ -47,6 +48,13 @@ function formatTimeFromMinutes(minute) {
   const h = Math.floor(minute / 60);
   const mm = String(minute % 60).padStart(2, "0");
   return `${h}:${mm}`;
+}
+
+function formatTimeLabel(dateObj) {
+  if (!dateObj) return "--:--";
+  const h = String(dateObj.getHours()).padStart(2, "0");
+  const m = String(dateObj.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 function formatSlotRangeLabel(startMinute) {
@@ -156,6 +164,7 @@ function mapCourt(c) {
     name: c.name || c.court_name || `Sân ${c.court_id || c.id}`,
     type: c.surface_type || c.type || "Tiêu chuẩn",
     facilityId: c.facility_id || c.facilityId || null,
+    hourlyRate: c.price_per_hour || c.price || c.hourly_rate || HOURLY_RATE,
   };
 }
 
@@ -174,6 +183,10 @@ function normalizeBooking(raw) {
   const start = firstItem?.start_time ? new Date(firstItem.start_time) : firstItem?.startTime ? new Date(firstItem.startTime) : null;
   const end = firstItem?.end_time ? new Date(firstItem.end_time) : firstItem?.endTime ? new Date(firstItem.endTime) : null;
   const duration = start && end ? (end - start) / (1000 * 60 * 60) : null;
+  const itemTotal = Array.isArray(raw.items)
+    ? raw.items.reduce((sum, it) => sum + (it.total_price || it.totalPrice || it.price || 0), 0)
+    : null;
+  const inferredRate = getCourtHourlyRate(firstItem?.court_id || firstItem?.courtId);
   const uiStatus = mapUiStatus(raw.status, raw.payment_status);
   const paymentRef = raw.payment_reference || raw.paymentReference;
   return {
@@ -189,7 +202,7 @@ function normalizeBooking(raw) {
     customer: state.userProfile.name,
     start,
     end,
-    total: raw.total_amount || (firstItem?.price ?? duration * HOURLY_RATE),
+    total: raw.total_amount || itemTotal || (firstItem?.price ?? (duration || 1) * (inferredRate || HOURLY_RATE)),
     raw,
   };
 }
@@ -229,21 +242,63 @@ function getFacilityCode(facilityId) {
 function setSelection(facilityId, dateStr) {
   state.selectedFacilityId = facilityId;
   state.selectedDate = dateStr;
+  state.selectedSlots = [];
   localStorage.setItem("soa_facility_id", facilityId || "");
   localStorage.setItem("soa_booking_date", dateStr || "");
 }
 
-function setSelectedSlot(courtId, startDate) {
+function toggleSelectedSlot(courtId, startDate) {
   if (!startDate || Number.isNaN(startDate.getTime())) return;
   const end = new Date(startDate.getTime() + 60 * 60 * 1000);
-  state.selectedSlot = { courtId, start: startDate, end };
+  const key = `${courtId}-${startDate.toISOString()}`;
+  const existingIndex = state.selectedSlots.findIndex((s) => `${s.courtId}-${s.start.toISOString()}` === key);
+
+  if (existingIndex >= 0) {
+    state.selectedSlots.splice(existingIndex, 1);
+  } else {
+    state.selectedSlots.push({ courtId, start: startDate, end });
+  }
+
+  state.selectedSlots.sort((a, b) => a.start.getTime() - b.start.getTime());
   updateSelectionBar();
   const body = document.getElementById("timeline-body-grid");
   if (body) {
+    // đồng bộ trạng thái highlight cho tất cả ô đã chọn
     body.querySelectorAll(".timeline-cell.active").forEach((c) => c.classList.remove("active"));
-    const cell = body.querySelector(`.timeline-cell[data-court="${courtId}"][data-start="${startDate.toISOString()}"]`);
-    if (cell) cell.classList.add("active");
+    state.selectedSlots.forEach((slot) => {
+      const cell = body.querySelector(`.timeline-cell[data-court="${slot.courtId}"][data-start="${slot.start.toISOString()}"]`);
+      if (cell) cell.classList.add("active");
+    });
   }
+}
+
+function getCourtHourlyRate(courtId) {
+  const rate = state.courts.find((c) => c.id === courtId)?.hourlyRate;
+  const num = typeof rate === "number" ? rate : parseFloat(rate);
+  return Number.isFinite(num) ? num : HOURLY_RATE;
+}
+
+function summarizeSelectionPricing(slots) {
+  if (!slots || !slots.length) return { total: 0, hours: 0, priceLabel: "--", rates: [] };
+  const infos = slots.map((slot) => {
+    const hours = (slot.end - slot.start) / (1000 * 60 * 60) || 1;
+    const rate = getCourtHourlyRate(slot.courtId);
+    return { hours, rate };
+  });
+  const total = infos.reduce((sum, item) => sum + item.hours * item.rate, 0);
+  const hours = infos.reduce((sum, item) => sum + item.hours, 0);
+  const rates = Array.from(new Set(infos.map((i) => i.rate)));
+  const minRate = Math.min(...rates);
+  const maxRate = Math.max(...rates);
+  let priceLabel = formatCurrency(minRate);
+  if (rates.length > 1 && maxRate !== minRate) priceLabel = `${formatCurrency(minRate)} - ${formatCurrency(maxRate)} (theo sân)`;
+  return { total, hours, priceLabel, rates };
+}
+
+function isSlotSelected(courtId, startDate) {
+  if (!startDate) return false;
+  const key = `${courtId}-${startDate.toISOString()}`;
+  return state.selectedSlots.some((s) => `${s.courtId}-${s.start.toISOString()}` === key);
 }
 
 function updateSelectionBar() {
@@ -251,57 +306,63 @@ function updateSelectionBar() {
   const totalEl = document.getElementById("selection-total");
   const nextBtn = document.getElementById("btn-next");
   if (!textEl || !totalEl || !nextBtn) return;
-  if (!state.selectedSlot) {
+  if (!state.selectedSlots.length) {
     textEl.innerText = "Chưa chọn";
     totalEl.innerText = "0 đ";
     nextBtn.disabled = true;
     return;
   }
-  const { start, end, courtId } = state.selectedSlot;
-  const duration = (end - start) / (1000 * 60 * 60);
-  textEl.innerText = `${getCourtName(courtId)} · ${start.getHours()}:${start.getMinutes().toString().padStart(2, "0")} - ${end
-    .getHours()
-    .toString()
-    .padStart(2, "0")}:${end.getMinutes().toString().padStart(2, "0")}`;
-  const total = duration * HOURLY_RATE;
+  const { total } = summarizeSelectionPricing(state.selectedSlots);
+  const first = state.selectedSlots[0];
+  const label = first
+    ? `${getCourtName(first.courtId)} · ${first.start.getHours()}:${String(first.start.getMinutes()).padStart(2, "0")} - ${first.end
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${String(first.end.getMinutes()).padStart(2, "0")}`
+    : "Đã chọn";
+  const suffix = state.selectedSlots.length > 1 ? `  +${state.selectedSlots.length - 1} ô khác` : "";
+  textEl.innerText = `${label}${suffix}`;
   totalEl.innerText = formatCurrency(total);
   nextBtn.disabled = false;
 }
 
 function openQuickCheckout() {
-  if (!state.selectedSlot) {
+  if (!state.selectedSlots.length) {
     showToast("Vui lòng chọn khung giờ trước.");
     return;
   }
   const modal = document.getElementById("quickCheckoutModal");
-  if (!modal) {
-    // fallback về modal cũ nếu chưa có giao diện mới
-    openBookingModal(state.selectedSlot.courtId, state.selectedSlot.start);
-    return;
-  }
+  if (!modal) return;
   const facility = getFacilityInfo(state.selectedFacilityId);
   const branchCode = getFacilityCode(state.selectedFacilityId);
-  const courtName = getCourtName(state.selectedSlot.courtId);
-  const { start, end } = state.selectedSlot;
-  const duration = (end - start) / (1000 * 60 * 60);
-  const hourPrice = HOURLY_RATE;
-  const total = duration * hourPrice;
+  const pricing = summarizeSelectionPricing(state.selectedSlots);
+  const firstSlotRate = getCourtHourlyRate(state.selectedSlots[0].courtId);
+  const totalHours = pricing.hours;
+  const total = pricing.total;
 
-  const slotText = `${courtName} - ${start.getHours()}:${String(start.getMinutes()).padStart(2, "0")} đến ${end.getHours()}:${String(
-    end.getMinutes()
-  ).padStart(2, "0")} (${formatDateVi(start)} - ${branchCode})`;
+  const slotText = state.selectedSlots
+    .map((slot) => {
+      const timeRange = `${formatTimeLabel(slot.start)} - ${formatTimeLabel(slot.end)}`;
+      return `<div class="slot-line">• ${getCourtName(slot.courtId)}: ${timeRange} (${formatDateVi(slot.start)} - ${branchCode})</div>`;
+    })
+    .join("");
 
   const summaryFields = {
     "qc-branch": `CN ${branchCode} ${facility.name ? "- " + facility.name : ""}`,
     "qc-address": facility.address || facility.location || "Đang cập nhật địa chỉ",
-    "qc-slot": slotText,
-    "qc-price-hour": formatCurrency(hourPrice),
-    "qc-hour-count": duration,
+    "qc-slot": slotText || "--",
+    "qc-price-hour": state.selectedSlots.length > 1 ? pricing.priceLabel : formatCurrency(firstSlotRate),
+    "qc-hour-count": totalHours,
     "qc-total": formatCurrency(total),
   };
   Object.entries(summaryFields).forEach(([id, val]) => {
     const el = document.getElementById(id);
-    if (el) el.innerText = val;
+    if (!el) return;
+    if (id === "qc-slot") {
+      el.innerHTML = val;
+    } else {
+      el.innerText = val;
+    }
   });
 
   // Prefill thông tin khách
@@ -316,7 +377,7 @@ function openQuickCheckout() {
 }
 
 async function submitQuickCheckout() {
-  if (!state.selectedSlot) {
+  if (!state.selectedSlots.length) {
     alert("Vui lòng chọn khung giờ trước.");
     return;
   }
@@ -332,30 +393,20 @@ async function submitQuickCheckout() {
     openSelectionModal();
     return;
   }
-  const { start, end, courtId } = state.selectedSlot;
-  const duration = (end - start) / (1000 * 60 * 60);
-
   const payload = {
     facility_id: state.selectedFacilityId,
-    items: [
-      {
-        court_id: courtId,
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        price: duration * HOURLY_RATE,
-      },
-    ],
+    items: state.selectedSlots.map((slot) => ({
+      court_id: slot.courtId,
+      start_time: slot.start.toISOString(),
+      end_time: slot.end.toISOString(),
+      price: getCourtHourlyRate(slot.courtId),
+    })),
     payment_method: DEFAULT_PAYMENT_METHOD,
     note: `Khách: ${name} | SDT: ${phone} | Email: ${email} | Coupon: ${coupon || "Không có"}`,
   };
 
   try {
     const created = await window.api.booking.create(payload);
-    await refreshBookings();
-    closeModal("quickCheckoutModal");
-    changeView(currentView);
-    showToast("Đã đặt sân thành công");
-
     const createdBooking = extractBookingFromCreateResponse(created);
     let bookingToPay = null;
     if (createdBooking) {
@@ -367,10 +418,15 @@ async function submitQuickCheckout() {
     }
     if (bookingToPay && bookingToPay.raw?.payment_reference) {
       currentBookingToProcess = bookingToPay;
-      processPayment();
-    } else {
-      showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
+      closeModal("quickCheckoutModal");
+      processPayment(); // chuyển thẳng sang cổng thanh toán
+      refreshBookings().catch((err) => console.warn("Refresh bookings after pay failed", err));
+      return;
     }
+    await refreshBookings();
+    closeModal("quickCheckoutModal");
+    changeView(currentView);
+    showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
   } catch (err) {
     console.error(err);
     alert("Không đặt được sân: " + err.message);
@@ -402,7 +458,6 @@ function confirmSelection() {
     return;
   }
   setSelection(facilityId, dateStr);
-  state.selectedSlot = null;
   document.getElementById("selectionModal")?.classList.remove("show");
   refreshBookings().then(() => changeView(currentView));
 }
@@ -748,6 +803,7 @@ function saveProfile() {
 
 // --- BOOKING VIEW ---
 function renderBooking() {
+  let hasAutoScrolled = false;
   const slots = Array.from({ length: ((END_HOUR - START_HOUR) * 60) / SLOT_STEP_MINUTES }, (_, i) => START_HOUR * 60 + i * SLOT_STEP_MINUTES);
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
@@ -800,12 +856,13 @@ function renderBooking() {
       </div>
 
       <div class="schedule-panel">
+        <div class="corner-cell">Sân</div>
         <div class="time-row">
-          <div class="corner-cell">Sân</div>
           <div class="time-track" ${columnStyle}>
             ${slots.map((m) => `<div class="time-cell">${formatSlotRangeLabel(m)}</div>`).join("")}
           </div>
         </div>
+        <div class="court-list" id="court-list"></div>
         <div class="timeline-body-grid" id="timeline-body-grid"></div>
       </div>
 
@@ -822,7 +879,7 @@ function renderBooking() {
   dynamicContent.innerHTML = bookingHtml;
 
   document.getElementById("btn-next").onclick = () => {
-    if (state.selectedSlot) {
+    if (state.selectedSlots.length) {
       openQuickCheckout();
     }
   };
@@ -837,7 +894,20 @@ function renderBooking() {
     const courts = state.courts.filter((c) => !state.selectedFacilityId || c.facilityId === state.selectedFacilityId);
     const slots = Array.from({ length: ((END_HOUR - START_HOUR) * 60) / SLOT_STEP_MINUTES }, (_, i) => START_HOUR * 60 + i * SLOT_STEP_MINUTES);
     const body = document.getElementById("timeline-body-grid");
+    const courtList = document.getElementById("court-list");
     if (!body) return;
+    if (courtList) {
+      courtList.innerHTML = courts
+        .map(
+          (c) => `
+          <div class="court-item">
+            <div class="court-code">${getFacilityCode(state.selectedFacilityId)}</div>
+            <div class="court-name">${c.name}</div>
+          </div>`
+        )
+        .join("");
+    }
+
     body.innerHTML = courts
       .map((c) => {
         const cells = slots
@@ -849,21 +919,25 @@ function renderBooking() {
             const booking = filteredBookings.find((b) => b.courtId === c.id && b.start && b.end && b.start <= start && b.end > start);
             let status = "blank";
             if (booking) status = "booked";
-            if (state.selectedSlot && state.selectedSlot.courtId === c.id && state.selectedSlot.start.getTime() === start.getTime()) {
-              status = "active";
-            }
+            if (isSlotSelected(c.id, start)) status = "active";
             return `<div class="timeline-cell ${status}" data-court="${c.id}" data-start="${start.toISOString()}"></div>`;
           })
           .join("");
         return `<div class="timeline-row">
-          <div class="timeline-court">
-            <div class="court-code">${getFacilityCode(state.selectedFacilityId)}</div>
-            <div class="court-name">${c.name}</div>
-          </div>
           <div class="timeline-cells" ${columnStyle}>${cells}</div>
         </div>`;
       })
       .join("");
+
+    if (!hasAutoScrolled) {
+      const schedule = document.querySelector(".schedule-panel");
+      if (schedule) {
+        const slotWidth = 140;
+        const offsetHour = Math.max(0, DEFAULT_VIEW_HOUR - START_HOUR);
+        schedule.scrollLeft = offsetHour * slotWidth;
+      }
+      hasAutoScrolled = true;
+    }
   };
 
   document.getElementById("booking-date")?.addEventListener("change", (e) => {
@@ -886,47 +960,12 @@ function renderBooking() {
     if (cell.classList.contains("booked")) return;
     const courtId = parseInt(cell.dataset.court, 10);
     const start = new Date(cell.dataset.start);
-    setSelectedSlot(courtId, start);
-    openBookingModal(courtId, start);
-    renderGrid();
+    toggleSelectedSlot(courtId, start);
+    renderGrid(); // đảm bảo repaint toàn bộ lưới với các ô đang chọn
   });
 
   renderGrid();
   updateSelectionBar();
-}
-
-function initTimeline() {
-  const header = document.getElementById("timeline-header");
-  const body = document.getElementById("timeline-body");
-  const totalHours = END_HOUR - START_HOUR;
-
-  header.innerHTML = "";
-  for (let h = START_HOUR; h < END_HOUR; h++) {
-    header.innerHTML += `<div class="time-slot-head">${h}:00</div>`;
-  }
-
-  body.innerHTML = "";
-  state.courts.forEach((court) => {
-    body.innerHTML += `<div class="court-row"><div class="court-label">${court.name}</div>
-        <div class="slots-container" id="court-slots-${court.id}" style="position: relative; flex: 1;"></div></div>`;
-  });
-
-  state.bookings.forEach((bk) => {
-    const container = document.getElementById(`court-slots-${bk.courtId}`);
-    if (!container || bk.startHour === null) return;
-
-    const offsetHours = bk.startHour - START_HOUR;
-    const leftPercent = (offsetHours / totalHours) * 100;
-    const widthPercent = (bk.duration / totalHours) * 100;
-    const div = document.createElement("div");
-    div.className = `booking-block ${bk.uiStatus}`;
-    div.style.left = `${leftPercent}%`;
-    div.style.width = `${widthPercent}%`;
-    div.innerHTML = `<strong>${bk.customer}</strong><div>${getCourtName(bk.courtId)} - ${bk.startHour}:00 (${bk.duration}h)</div>`;
-
-    div.onclick = () => openCheckoutModal(bk.id);
-    container.appendChild(div);
-  });
 }
 
 // --- MANAGER VIEW ---
@@ -1061,25 +1100,28 @@ async function confirmBooking() {
 
   const payload = {
     facility_id: state.selectedFacilityId,
-    items: [
-      {
-        court_id: courtId,
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        price: duration * HOURLY_RATE,
-      },
-    ],
+    items:
+      state.selectedSlots.length > 0
+        ? state.selectedSlots.map((slot) => ({
+            court_id: slot.courtId,
+            start_time: slot.start.toISOString(),
+            end_time: slot.end.toISOString(),
+            price: getCourtHourlyRate(slot.courtId),
+          }))
+        : [
+            {
+              court_id: courtId,
+              start_time: start.toISOString(),
+              end_time: end.toISOString(),
+              price: duration * getCourtHourlyRate(courtId),
+            },
+          ],
     payment_method: DEFAULT_PAYMENT_METHOD,
     note: `Khách: ${name}`,
   };
 
   try {
     const created = await window.api.booking.create(payload);
-    await refreshBookings();
-    closeModal("bookingModal");
-    changeView(currentView);
-    showToast("Đã đặt sân thành công");
-
     // Sau khi tạo xong thì tự chuyển sang thanh toán nếu có invoice
     const createdBooking = extractBookingFromCreateResponse(created);
     let bookingToPay = null;
@@ -1092,10 +1134,15 @@ async function confirmBooking() {
     }
     if (bookingToPay && bookingToPay.raw?.payment_reference) {
       currentBookingToProcess = bookingToPay;
-      processPayment();
-    } else {
-      showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
+      closeModal("bookingModal");
+      processPayment(); // chuyển thẳng sang cổng thanh toán
+      refreshBookings().catch((err) => console.warn("Refresh bookings after pay failed", err));
+      return;
     }
+    await refreshBookings();
+    closeModal("bookingModal");
+    changeView(currentView);
+    showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
   } catch (err) {
     console.error(err);
     alert("Không đặt được sân: " + err.message);
@@ -1112,44 +1159,8 @@ function populateHourOptions(selectEl, defaultHour = null) {
 }
 
 function openBookingModal(courtId = null, startTime = null) {
-  const select = document.getElementById("b-court");
-  const availableCourts = state.selectedFacilityId
-    ? state.courts.filter((c) => c.facilityId === state.selectedFacilityId)
-    : state.courts;
-  select.innerHTML = availableCourts.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
-  if (courtId) {
-    select.value = courtId;
-  }
-
-  const hourSelect = document.getElementById("b-hour");
-  const minuteSelect = document.getElementById("b-minute");
-  const endHourSelect = document.getElementById("b-end-hour");
-  const endMinuteSelect = document.getElementById("b-end-minute");
-  const now = new Date();
-  let defaultStart = null;
-  if (startTime instanceof Date) {
-    defaultStart = startTime;
-  } else if (typeof startTime === "number") {
-    defaultStart = new Date();
-    defaultStart.setHours(startTime, 0, 0, 0);
-  }
-  const defaultHour = Math.max(Math.min(defaultStart?.getHours() ?? now.getHours() + 1, 23), 0);
-  const defaultMinute = defaultStart?.getMinutes() ?? 0;
-  const defaultEndHour = Math.min(defaultHour + 1, 23);
-  const defaultEndMinute = defaultMinute;
-  populateHourOptions(hourSelect, defaultHour);
-  populateHourOptions(endHourSelect, defaultEndHour);
-  if (minuteSelect) minuteSelect.value = String(defaultMinute).padStart(2, "0");
-  if (endMinuteSelect) endMinuteSelect.value = String(defaultEndMinute).padStart(2, "0");
-
-  const dateInput = document.getElementById("b-date");
-  if (dateInput) {
-    const bookingDateFromGrid = document.getElementById("booking-date")?.value;
-    const todayStr = new Date().toISOString().split("T")[0];
-    dateInput.value = state.selectedDate || bookingDateFromGrid || todayStr;
-  }
-
-  document.getElementById("bookingModal").classList.add("show");
+  // Modal cũ không còn dùng
+  return;
 }
 
 // --- BOOKING DETAIL / ACTION ---
