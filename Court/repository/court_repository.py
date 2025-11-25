@@ -119,3 +119,34 @@ class CourtRepository:
             available_hours=available_hours,
             is_active=bool(row.get("is_active", 1)),
         )
+#------------------FOR MANAGER FLOW----------------------------------
+    def get_courts_by_facility(self, facility_id: int):
+        try:
+            facility_id = int(facility_id)
+            query = text(
+                """
+                SELECT court_id, facility_id, name, surface_type, hourly_rate, description, available_hours, is_active
+                FROM Court
+                WHERE facility_id = :facility_id AND is_active = 1
+                ORDER BY court_id
+                """
+            )
+            result = self.db.execute(query, {"facility_id": facility_id}).mappings().all()
+            courts = []
+            for row in result:
+                courts.append({
+                    "court_id": row["court_id"],
+                    "name": row["name"],
+                    "surface_type": row["surface_type"],
+                    "hourly_rate": row["hourly_rate"],
+                    "description": row["description"],
+                    "available_hours": row["available_hours"],
+                    "is_active": row["is_active"],
+                })
+
+            return {
+                "facility_id": facility_id,
+                "courts": courts
+            }
+        except Exception as e:
+            raise {"error": str(e) + " Unable to fetch courts for the facility"}

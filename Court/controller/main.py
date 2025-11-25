@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 
 from Court.core.connDB import connDB
@@ -9,17 +9,34 @@ from Court.models.court_models import (
 )
 from Court.repository.court_repository import CourtRepository
 from Court.service.court_service import CourtService
+from jwt_shared.jwt import jwt_services
 
 app = FastAPI()
 db = connDB()
+
+jwt_services = jwt_services()
+
+url = {
+    "facility_service": "http://facility_api:8005"
+}
+
+def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
+    try:
+        payload = jwt_services.decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return payload  # hoặc chỉ return user_id
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e) + " Invalid token")
 
 
 def get_court_service(session: Session = Depends(db.get_db)) -> CourtService:
     return CourtService(CourtRepository(session))
 
 
-@app.get("/")
-def health_check():
+@app.get("/health")
+def health_check(user_info: dict = Depends(get_current_user)):
     return {"status": "ok", "service": "court"}
 
 
@@ -69,3 +86,21 @@ def get_availability(
     service: CourtService = Depends(get_court_service),
 ):
     return {"status": "success", "data": service.get_availability(court_id, params)}
+
+#------------------FOR MANAGER FLOW----------------------------------
+@app.get("/manager/{facility_id}/courts")
+def get_courts_by_facility(
+    facility_id: str,
+    service: CourtService = Depends(get_court_service),
+    user_info: dict = Depends(get_current_user),
+):
+    try:
+        courts = service.get_courts_by_facility(facility_id)
+        return {"status": "success", "data": courts}
+    except HTTPException as e:
+        raise {"status": "error", "detail": e.detail}
+    
+    
+    
+    
+    

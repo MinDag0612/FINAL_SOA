@@ -218,3 +218,17 @@ class BookingService:
         except Exception:
             # Swallow errors so payment callback does not fail
             pass
+#--------- FOR MANAGER FLOW --------------
+    def get_time_slots_by_court(self, court_id: int) -> List[dict]:
+        try:
+            slots = self.repo.get_time_slots_by_court(court_id)
+            return slots
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    def get_bookings_by_facility(self, facility_id: int) -> List[dict]:
+        try:
+            bookings = self.repo.get_bookings_by_facility(facility_id)
+            return bookings
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
