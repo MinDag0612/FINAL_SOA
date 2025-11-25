@@ -30,7 +30,7 @@ def get_service() -> NotificationService:
 
 
 @app.get("/health")
-def health_check():
+def health_check(user = Depends(get_current_user)):
     return {"status": "ok", "service": "notification"}
 
 @app.post("/notification/send-email-verify-register")

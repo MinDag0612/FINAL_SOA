@@ -5,7 +5,7 @@ from repository.facility_repo import FacilityRepo
 
 
 class FacilityService:
-\
+
     def __init__(self, repo: FacilityRepo):
         self.repo = repo
 
@@ -30,3 +30,5 @@ class FacilityService:
 
     def delete_facility(self, facility_id: int) -> bool:
         return self.repo.delete_facility(facility_id)
+    
+    
