@@ -176,25 +176,14 @@ services:
     env_file:
       - Billing/core/.env
     environment:
-      DB_HOST: bill_db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: DB_BILL
-      VNP_TMNCODE: ${VNP_TMNCODE:-8HHHFPP3}
-      VNP_HASHSECRET: ${VNP_HASHSECRET:-6GXPD4W05OL803TL0N324L6S2PCL7E5O}
-      VNP_URL: ${VNP_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-      VNP_RETURNURL: ${VNP_RETURNURL:-http://localhost:8002/billing/vnpay/return}
-      VNP_IPNURL: ${VNP_IPNURL:-http://localhost:8002/billing/vnpay/ipn}
-      VNP_EXPIRE_MINUTES: ${VNP_EXPIRE_MINUTES:-15}
-      VNP_ORDER_TYPE: ${VNP_ORDER_TYPE:-other}
-      BOOKING_SERVICE_URL: ${BOOKING_SERVICE_URL:-http://booking_api:8003}
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
     ports:
       - "8002:8002"
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - backend
 
@@ -347,6 +336,23 @@ services:
       - ./:/app
     depends_on:
       - apigateway
+      - sepay_php
+    networks:
+      - backend
+
+  # =====================
+  # SEPAY PHP SERVICE (checkout.php)
+  # =====================
+  sepay_php:
+    build:
+      context: ./
+      dockerfile: Billing/php/Dockerfile
+    container_name: sepay_php
+    restart: always
+    env_file:
+      - Billing/core/.env
+    ports:
+      - "9000:80"
     networks:
       - backend
 
