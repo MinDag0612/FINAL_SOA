@@ -1054,15 +1054,24 @@ function setupManagerTabs() {
   const tabButtons = document.querySelectorAll("#manager-tabs .tab-button");
   const tabPanes = document.querySelectorAll(".tab-pane");
 
+  console.log("[setupManagerTabs] Found", tabButtons.length, "buttons and", tabPanes.length, "panes");
+
   tabButtons.forEach(button => {
     button.addEventListener("click", () => {
       const tabName = button.getAttribute("data-tab");
+      console.log("[setupManagerTabs] Switching to tab:", tabName);
 
       tabButtons.forEach(b => b.classList.remove("active"));
       tabPanes.forEach(p => p.classList.remove("active"));
 
       button.classList.add("active");
-      document.getElementById(`tab-${tabName}`)?.classList.add("active");
+      const targetPane = document.getElementById(`tab-${tabName}`);
+      if (targetPane) {
+        targetPane.classList.add("active");
+        console.log("[setupManagerTabs] Activated pane:", `tab-${tabName}`);
+      } else {
+        console.error("[setupManagerTabs] Target pane not found:", `tab-${tabName}`);
+      }
     });
   });
 
@@ -1232,7 +1241,11 @@ async function refreshManagerView(dateOverride) {
 
     const courtsContainer = document.getElementById("courts-list");
     if (courtsContainer) {
-      courtsContainer.innerHTML = window.ManagerCourts.renderCourtsSection(courts, bookings, dateStr);
+      const courtsHtml = window.ManagerCourts.renderCourtsSection(courts, bookings, dateStr);
+      courtsContainer.innerHTML = courtsHtml;
+      console.log("[refreshManagerView] Courts HTML updated, length:", courtsHtml.length);
+    } else {
+      console.error("[refreshManagerView] courts-list container not found!");
     }
 
     const headerContainer = document.getElementById("bookings-header");
@@ -1260,11 +1273,15 @@ async function refreshManagerView(dateOverride) {
     if (bookingsContainer) {
       try {
         console.log("[refreshManagerView] Rendering booking table with", bookings.length, "bookings");
-        bookingsContainer.innerHTML = window.ManagerBooking.renderBookingTable(bookings, courts);
+        const tableHtml = window.ManagerBooking.renderBookingTable(bookings, courts);
+        bookingsContainer.innerHTML = tableHtml;
+        console.log("[refreshManagerView] Booking table HTML length:", tableHtml.length, "Container innerHTML length:", bookingsContainer.innerHTML.length);
       } catch (err) {
         console.error("[refreshManagerView] Error rendering booking table:", err);
         bookingsContainer.innerHTML = `<div class="error-message">Lỗi hiển thị bảng booking: ${err.message}</div>`;
       }
+    } else {
+      console.error("[refreshManagerView] bookings-list container not found!");
     }
 
     window.refreshManagerBookings = () => refreshManagerView();
@@ -1321,8 +1338,16 @@ async function loadManagerReport(preloadedBookings = null, preloadedCourts = nul
     const dateRange = `${formatDateVi(startDate)} - ${formatDateVi(today)}`;
     const reportHtml = window.ManagerReport.renderReportTable(reportData, dateRange);
     
-    // Render playtime charts (new feature)
-    const chartsHtml = window.ManagerReportCharts?.renderPlaytimeCharts(courts) || '';
+    // Render playtime charts (new feature - async!)
+    let chartsHtml = '';
+    if (window.ManagerReportCharts?.renderPlaytimeCharts) {
+      try {
+        chartsHtml = await window.ManagerReportCharts.renderPlaytimeCharts(courts);
+      } catch (chartErr) {
+        console.error("[loadManagerReport] Error rendering charts:", chartErr);
+        chartsHtml = `<div class="error-message">Lỗi load charts: ${chartErr.message}</div>`;
+      }
+    }
     
     const reportContainer = document.getElementById("report-container");
     if (reportContainer) {
