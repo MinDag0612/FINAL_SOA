@@ -102,24 +102,49 @@ def payment_callback(
     return service.update_payment_status(booking_id, payload)
 
 #------------------FOR MANAGER FLOW----------------------------------
+<<<<<<< HEAD
 @app.get("/manager/{court_id}/time_slots")
+=======
+@app.get("/manager/court_id={court_id}/time_slots")
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 def get_time_slots_by_court(
     court_id: int,
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
+<<<<<<< HEAD
     try:
         time_slots = service.get_time_slots_by_court(court_id)
+=======
+    role = user["infor"]["role"]
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    user_id = int(user["sub"])
+    
+    try:
+        time_slots = service.get_time_slots_by_court(court_id, user_id)
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
         return {"status": "success", "data": time_slots}
     except HTTPException as e:
         raise {"status": "error", "detail": e.detail}
     
+<<<<<<< HEAD
 @app.get("/manager/{facility_id}/bookings")
+=======
+@app.get("/manager/facility_id={facility_id}/bookings")
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 def get_bookings_by_facility(
     facility_id: int,
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
+<<<<<<< HEAD
+=======
+    role = user["infor"]["role"]
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Access denied")
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
     try:
         bookings = service.get_bookings_by_facility(facility_id)
         return {"status": "success", "data": bookings}

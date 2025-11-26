@@ -1,7 +1,0 @@
-FROM mysql:8.0
-
-ENV MYSQL_ROOT_PASSWORD=root
-ENV MYSQL_DATABASE=auth_db
-
-# Copy file SQL khởi tạo
-COPY auth_db.sql /docker-entrypoint-initdb.d/

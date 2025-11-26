@@ -27,10 +27,9 @@ class RevenueReport(BaseModel):
     currency: str = "VND"
 
 
-class UsageReport(BaseModel):
+class UsageTimePlayReport(BaseModel):
     facility_id: int
-    utilization_rate: float
-    total_hours: int
+    total_play_time_per_day: dict 
 
 
 class CancellationReport(BaseModel):

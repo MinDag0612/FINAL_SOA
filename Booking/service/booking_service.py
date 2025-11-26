@@ -218,7 +218,13 @@ class BookingService:
             # Swallow errors so payment callback does not fail
             pass
 #--------- FOR MANAGER FLOW --------------
+<<<<<<< HEAD
     def get_time_slots_by_court(self, court_id: int) -> List[dict]:
+=======
+    def get_time_slots_by_court(self, court_id: int, user_id: int) -> List[dict]:
+        
+        
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
         try:
             slots = self.repo.get_time_slots_by_court(court_id)
             return slots

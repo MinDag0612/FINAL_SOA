@@ -133,4 +133,25 @@ class FacilityRepository:
             rows = result.mappings().all()
             return [f"{row['facility_id']}: {row['name']}" for row in rows]
         except Exception as e:
+<<<<<<< HEAD
+=======
+            raise {"error": str(e) + " -- from facility repository"}
+        
+    def get_manager_id_by_facility(self, facility_id: str) -> int:
+        try:
+            query = text(
+                """
+                SELECT user_id
+                FROM Facility
+                WHERE facility_id = :facility_id
+                """
+            )
+            result = self.db.execute(
+                query,
+                {"facility_id": facility_id}
+            )
+            rows = result.mappings().first()
+            return rows['user_id'] if rows else None
+        except Exception as e:
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
             raise {"error": str(e) + " -- from facility repository"}

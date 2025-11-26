@@ -45,5 +45,14 @@ class FacilityService:
             return facilities
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid manager ID")
+<<<<<<< HEAD
+=======
+    
+    def get_manager_id_by_facility(self, facility_id: str) -> int:
+        manager_id = self.repo.get_manager_id_by_facility(facility_id)
+        if manager_id is None:
+            raise HTTPException(status_code=404, detail="Facility not found")
+        return manager_id
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
         
 

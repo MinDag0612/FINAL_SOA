@@ -308,6 +308,28 @@ services:
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
+<<<<<<< HEAD
+=======
+    networks:
+      - backend
+
+    # =====================
+  # REPORT SERVICE
+  # =====================
+  report_api:
+    build:
+      context: ./
+      dockerfile: Report/dockerfile
+    container_name: report_service
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./:/app
+      - ./jwt_shared:/app/jwt_shared
+>>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
     networks:
       - backend
 
