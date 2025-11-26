@@ -311,6 +311,25 @@ services:
     networks:
       - backend
 
+    # =====================
+  # REPORT SERVICE
+  # =====================
+  report_api:
+    build:
+      context: ./
+      dockerfile: Report/dockerfile
+    container_name: report_service
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./:/app
+      - ./jwt_shared:/app/jwt_shared
+    networks:
+      - backend
+
   # =====================
   # API GATEWAY SERVICE
   # =====================

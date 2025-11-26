@@ -1,6 +1,6 @@
 court_id: 1
 
-API:        http://booking_api:8003/manager/{court_id}/time_slots
+API:        http://booking_api:8003/manager/court_id={court_id}/time_slots (chưa chặn)
 AUTHEN:     JWT - KEY
 PARAMETER:  court_id - Path param
 RETURN:     
@@ -22,7 +22,7 @@ RETURN:
 
 facility_id: 1
 
-API:        http://booking_api:8003/manager/{facility_id}/bookings
+API:        http://booking_api:8003/manager/facility_id={facility_id}/bookings (chưa chặn)
 AUTHEN:     JWT - KEY
 PARAMETER:  facility_id - Path param
 RETURN:     

@@ -88,17 +88,23 @@ def get_availability(
     return {"status": "success", "data": service.get_availability(court_id, params)}
 
 #------------------FOR MANAGER FLOW----------------------------------
-@app.get("/manager/{facility_id}/courts")
+@app.get("/manager/court_by_facility/{facility_id}")
 def get_courts_by_facility(
     facility_id: str,
     service: CourtService = Depends(get_court_service),
     user_info: dict = Depends(get_current_user),
+    token: str = Header(None, alias="Authorization")
 ):
+    role = user_info["infor"]["role"]
+    user_id = user_info["sub"]
+    
     try:
-        courts = service.get_courts_by_facility(facility_id)
+        if role != "manager":
+            raise HTTPException(status_code=403, detail="Access forbidden: Managers only ")
+        courts = service.get_courts_by_facility(facility_id, user_id, token)
         return {"status": "success", "data": courts}
     except HTTPException as e:
-        raise {"status": "error", "detail": e.detail}
+        raise HTTPException(status_code=e.status_code, detail=e.detail + " -- from court controller")
     
     
     

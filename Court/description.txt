@@ -1,6 +1,6 @@
 facilities_id: 1
 
-API:        http://court_api:8004/manager/{facility_id}/courts - GET
+API:        http://court_api:8004/manager/court_by_facility/{facility_id} - GET
 AUTHEN:     JWT - KEY
 PARAMETER:  facility_id - Path param
 RETURN:     

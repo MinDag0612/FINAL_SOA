@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List
 from fastapi import HTTPException
+import requests
 
 from Court.models.court_models import (
     Court,
@@ -65,8 +66,30 @@ class CourtService:
             available_slots=slots,
         )
 #------------------FOR MANAGER FLOW----------------------------------
-    def get_courts_by_facility(self, facility_id: int) -> List[Court]:
+    def get_courts_by_facility(self, facility_id: str, user_id: str, token: str):
+        url = f"http://facility_api:8005/manager/user_id_by_facility/{facility_id}"
+        header = {
+            "Authorization": token
+        }
         try:
+            user_id_court = requests.get(url, headers=header)
+            user_id_court = user_id_court.json()
+        except requests.RequestException as e:
+            raise HTTPException(status_code=500, detail="Failed to verify facility manager") from e
+        except ValueError:
+            print(f"Response is not JSON")
+            return None
+        user_id_court = user_id_court["user_id"]
+    
+        try:
+            user_id_court_int = int(str(user_id_court).strip())
+            user_id_int = int(str(user_id).strip())
+            if user_id is None:
+                raise HTTPException(status_code=403, detail="Access forbidden: You do not manage this facility. User ID missing")
+            
+            if int(user_id_court_int) != int(user_id_int):
+                raise HTTPException(status_code=403, detail=f"Access forbidden: You do not manage this facility. User ID mismatch. " + str(user_id_court) + " vs " + str(user_id))
+            
             facility_id = int(facility_id)
             courts = self.court_repo.get_courts_by_facility(facility_id)
             if not courts:
