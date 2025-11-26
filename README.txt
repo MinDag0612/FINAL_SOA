@@ -74,7 +74,7 @@ Front-end
   - Trang dashboard khách hàng: http://localhost/ui/Homepage/homepage.html
 - API từ UI gọi qua Nginx cùng cổng 80 (base: http://localhost), các path /auth/, /booking/, /billing/, /court/, /facility/, /session/ đã được proxy sẵn tới API Gateway.
 - Nếu dùng cổng public/ngrok cho SePay, cấu hình front:
-  - `localStorage.soa_payment_method = "sepay"`
+- `localStorage.soa_payment_method = "cash"`
   - `localStorage.soa_return_url = "https://hyperpathetic-fugally-erin.ngrok-free.dev/ui/Homepage/homepage.html"` (hoặc domain ngrok bạn đang dùng)
   - `localStorage.soa_api_base = "http://localhost"` (gọi API qua Nginx nội bộ)
 

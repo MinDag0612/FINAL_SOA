@@ -31,9 +31,12 @@ def create_invoice(
     return {"status": "success", "data": service.create_invoice(payload)}
 
 
-@app.get("/billing/{invoice_id}")
-def get_invoice(invoice_id: int, service: BillingService = Depends(get_service)):
-    return {"status": "success", "data": service.get_invoice(invoice_id)}
+@app.get("/billing/history")
+def billing_history(
+    params: BillingHistoryParams = Depends(),
+    service: BillingService = Depends(get_service),
+):
+    return {"status": "success", "data": service.list_history(params)}
 
 @app.post("/billing/{invoice_id}/pay")
 def pay_invoice(
@@ -45,14 +48,12 @@ def pay_invoice(
 
 @app.post("/billing/sepay/ipn")
 async def sepay_ipn(request: Request, service: BillingService = Depends(get_service)):
-    body = await request.json()
-    return service.handle_sepay_ipn(body)
+    return {"detail": "SePay gateway disabled"}
 
 
-@app.get("/billing/sepay/return")
-def sepay_return(request: Request, service: BillingService = Depends(get_service)):
-    params = dict(request.query_params)
-    return service.handle_sepay_return(params)
+@app.api_route("/billing/sepay/return", methods=["GET", "POST"])
+async def sepay_return(request: Request, service: BillingService = Depends(get_service)):
+    return {"detail": "SePay gateway disabled"}
 
 
 @app.post("/billing/{invoice_id}/webhook")
@@ -64,12 +65,9 @@ def billing_webhook(
     return service.handle_webhook(invoice_id, payload)
 
 
-@app.get("/billing/history")
-def billing_history(
-    params: BillingHistoryParams = Depends(),
-    service: BillingService = Depends(get_service),
-):
-    return {"status": "success", "data": service.list_history(params)}
+@app.get("/billing/{invoice_id}")
+def get_invoice(invoice_id: int, service: BillingService = Depends(get_service)):
+    return {"status": "success", "data": service.get_invoice(invoice_id)}
 
 @app.get("/db-test")
 def db_test():

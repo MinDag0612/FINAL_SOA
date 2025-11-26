@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY ./jwt_shared /app/jwt_shared
 COPY ./Billing /app/Billing
 
-EXPOSE 8000
+EXPOSE 8002
 
-# Chạy ứng dụng bằng uvicorn
-CMD ["uvicorn", "Billing.controller.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+# Chạy migrate rồi khởi động uvicorn
+CMD ["sh", "-c", "alembic -c Billing/alembic.ini upgrade head && uvicorn Billing.controller.main:app --host 0.0.0.0 --port 8002 --reload"]
