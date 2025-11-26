@@ -60,7 +60,7 @@ const ManagerCourts = (() => {
         <tr>
           <td><strong>${court.name || court.courtName}</strong></td>
           <td>${court.type || court.surface_type || '--'}</td>
-          <td>${formatCurrency(court.hourly_rate || court.price || 100000)}</td>
+          <td>${window.formatCurrency(court.hourly_rate || court.price || 100000)}</td>
           <td>${timelineHtml}</td>
         </tr>
       `;

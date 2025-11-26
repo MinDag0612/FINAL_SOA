@@ -31,15 +31,20 @@ let state = {
   },
 };
 
+// Expose state to window for manager modules
+window.state = state;
+
 function formatCurrency(amount = 0) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 }
+window.formatCurrency = formatCurrency;
 
 function formatDateVi(dateObj) {
   if (!dateObj) return "--";
   const d = new Date(dateObj);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
+window.formatDateVi = formatDateVi;
 
 function formatTimeFromMinutes(minute) {
   const h = Math.floor(minute / 60);
@@ -1129,7 +1134,20 @@ function showManagerLoadError(message) {
 async function initManagerContext() {
   try {
     const rawFacilities = await window.api.facility.managerList();
-    state.managerFacilities = (rawFacilities || [])
+    console.log("[initManagerContext] Raw facilities response:", rawFacilities);
+    
+    // Handle both array and object responses
+    let facilitiesArray = [];
+    if (Array.isArray(rawFacilities)) {
+      facilitiesArray = rawFacilities;
+    } else if (rawFacilities && typeof rawFacilities === 'object') {
+      // If it's an object, try to extract array from common property names
+      facilitiesArray = rawFacilities.data || rawFacilities.facilities || rawFacilities.items || [];
+    }
+    
+    console.log("[initManagerContext] Facilities array:", facilitiesArray);
+    
+    state.managerFacilities = (facilitiesArray || [])
       .map((facility) => {
         const id = Number(facility.facility_id || facility.id || facility.facilityId);
         return {
@@ -1139,8 +1157,10 @@ async function initManagerContext() {
       })
       .filter((facility) => facility.facility_id);
 
-    if (!state.managerFacilities.length) {
-      showManagerLoadError("Bạn chưa được gán cơ sở nào.");
+    console.log("[initManagerContext] Manager facilities:", state.managerFacilities);
+    
+    if (!state.managerFacilities || !state.managerFacilities.length) {
+      showManagerLoadError("Bạn chưa được gán cơ sở nào hoặc phiên đăng nhập đã hết hạn.");
       return;
     }
     if (!state.managerFacilityId) {
@@ -1154,11 +1174,17 @@ async function initManagerContext() {
 
     const facilitySelect = document.getElementById("manager-facility-select");
     if (facilitySelect) {
-      facilitySelect.onchange = (event) => {
+      facilitySelect.onchange = async (event) => {
         const nextId = parseInt(event.target.value, 10);
+        console.log("[facilitySelect.onchange] Selected facility ID:", nextId);
         if (Number.isNaN(nextId)) return;
         setManagerSelection(nextId, state.managerDate);
-        refreshManagerView();
+        try {
+          await refreshManagerView();
+        } catch (err) {
+          console.error("[facilitySelect.onchange] Error refreshing view:", err);
+          showManagerLoadError(`Không tải được dữ liệu: ${err.message}`);
+        }
       };
     }
 
@@ -1172,6 +1198,8 @@ async function initManagerContext() {
 
 async function refreshManagerView(dateOverride) {
   const facilityId = state.managerFacilityId;
+  console.log("[refreshManagerView] Called with facilityId:", facilityId, "dateOverride:", dateOverride);
+  
   if (!facilityId) {
     showManagerLoadError("Vui lòng chọn cơ sở để xem dữ liệu.");
     return { bookings: [], courts: [] };
@@ -1179,14 +1207,24 @@ async function refreshManagerView(dateOverride) {
 
   const dateStr = dateOverride || getManagerActiveDate();
   setManagerSelection(facilityId, dateStr);
+  
+  console.log("[refreshManagerView] Loading data for facility:", facilityId, "date:", dateStr);
 
   try {
     const [courtsData, bookingsData] = await Promise.all([
       window.api.court.listByFacility(facilityId),
       window.api.booking.managerList(facilityId, dateStr),
     ]);
-    const courts = (courtsData || []).map(mapCourt);
-    const bookings = (bookingsData || []).map(normalizeBooking);
+    
+    console.log("[refreshManagerView] Courts data:", courtsData, "isArray:", Array.isArray(courtsData));
+    console.log("[refreshManagerView] Bookings data:", bookingsData, "isArray:", Array.isArray(bookingsData));
+    
+    // Ensure we have arrays
+    const courtsArray = Array.isArray(courtsData) ? courtsData : (courtsData?.data || []);
+    const bookingsArray = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.data || []);
+    
+    const courts = courtsArray.map(mapCourt);
+    const bookings = bookingsArray.map(normalizeBooking);
 
     const statsHtml = window.ManagerCourts.renderCourtsStats(courts, bookings);
     const statsContainer = document.getElementById("courts-stats");
@@ -1208,17 +1246,40 @@ async function refreshManagerView(dateOverride) {
     }
 
     const walkinContainer = document.getElementById("bookings-walkin-form");
-    if (walkinContainer) walkinContainer.innerHTML = window.ManagerBooking.renderWalkInForm(courts);
+    if (walkinContainer) {
+      try {
+        console.log("[refreshManagerView] Rendering walk-in form with", courts.length, "courts");
+        walkinContainer.innerHTML = window.ManagerBooking.renderWalkInForm(courts);
+      } catch (err) {
+        console.error("[refreshManagerView] Error rendering walk-in form:", err);
+        walkinContainer.innerHTML = `<div class="error-message">Lỗi hiển thị form walk-in: ${err.message}</div>`;
+      }
+    }
 
     const bookingsContainer = document.getElementById("bookings-list");
     if (bookingsContainer) {
-      bookingsContainer.innerHTML = window.ManagerBooking.renderBookingTable(bookings, courts);
+      try {
+        console.log("[refreshManagerView] Rendering booking table with", bookings.length, "bookings");
+        bookingsContainer.innerHTML = window.ManagerBooking.renderBookingTable(bookings, courts);
+      } catch (err) {
+        console.error("[refreshManagerView] Error rendering booking table:", err);
+        bookingsContainer.innerHTML = `<div class="error-message">Lỗi hiển thị bảng booking: ${err.message}</div>`;
+      }
     }
 
     window.refreshManagerBookings = () => refreshManagerView();
     window.refreshManagerView = refreshManagerView;
 
-    await loadManagerReport(bookings, courts);
+    try {
+      console.log("[refreshManagerView] Loading manager report");
+      await loadManagerReport(bookings, courts);
+    } catch (err) {
+      console.error("[refreshManagerView] Error loading report:", err);
+      const reportContainer = document.getElementById("report-container");
+      if (reportContainer) {
+        reportContainer.innerHTML = `<div class="error-message">Lỗi tải báo cáo: ${err.message}</div>`;
+      }
+    }
 
     return { bookings, courts };
   } catch (err) {
@@ -1252,11 +1313,21 @@ async function loadManagerReport(preloadedBookings = null, preloadedCourts = nul
     const bookings = (bookingsData || []).map(normalizeBooking);
     const courts = (courtsData || []).map(mapCourt);
 
+    // Render usage stats (new feature)
+    const usageStatsHtml = window.ManagerReportCharts?.renderUsageStats(bookings, courts) || '';
+    
+    // Render revenue table
     const reportData = window.ManagerReport.calculateRevenueByCourtId(bookings, courts, startDateStr, endDateStr);
     const dateRange = `${formatDateVi(startDate)} - ${formatDateVi(today)}`;
     const reportHtml = window.ManagerReport.renderReportTable(reportData, dateRange);
+    
+    // Render playtime charts (new feature)
+    const chartsHtml = window.ManagerReportCharts?.renderPlaytimeCharts(courts) || '';
+    
     const reportContainer = document.getElementById("report-container");
-    if (reportContainer) reportContainer.innerHTML = reportHtml;
+    if (reportContainer) {
+      reportContainer.innerHTML = usageStatsHtml + reportHtml + chartsHtml;
+    }
   } catch (err) {
     console.error("[loadManagerReport] Error:", err);
     const reportContainer = document.getElementById("report-container");

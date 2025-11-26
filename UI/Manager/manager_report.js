@@ -128,7 +128,7 @@ const ManagerReport = (() => {
         </div>
         <div class="summary-card">
           <div class="label">Tổng Doanh Thu</div>
-          <div class="value">${formatCurrency(totalRevenue)}</div>
+          <div class="value">${window.formatCurrency(totalRevenue)}</div>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ const ManagerReport = (() => {
           <td><strong>${row.courtName}</strong></td>
           <td>${row.bookingCount}</td>
           <td>${row.totalHours.toFixed(1)}h</td>
-          <td>${formatCurrency(row.totalRevenue)}</td>
+          <td>${window.formatCurrency(row.totalRevenue)}</td>
           <td>${avgHours}h</td>
           <td>${percentage}%</td>
         </tr>

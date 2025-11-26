@@ -36,8 +36,9 @@ const ManagerBooking = (() => {
 
     bookings.forEach(booking => {
       const courtName = courtMap[booking.courtId || booking.court_id] || `Sân #${booking.courtId || booking.court_id}`;
-      const start = new Date(booking.start_time || booking.start);
-      const end = new Date(booking.end_time || booking.end);
+      // Handle both normalized booking (start/end as Date objects) and raw booking (start_time/end_time as strings)
+      const start = booking.start instanceof Date ? booking.start : new Date(booking.start_time || booking.start);
+      const end = booking.end instanceof Date ? booking.end : new Date(booking.end_time || booking.end);
       const date = start.toLocaleDateString('vi-VN');
       const time = `${String(start.getHours()).padStart(2, '0')}:00 - ${String(end.getHours()).padStart(2, '0')}:00`;
       const status = booking.status || booking.uiStatus || 'pending';
@@ -72,7 +73,7 @@ const ManagerBooking = (() => {
           <td>${time}</td>
           <td>${statusBadge}</td>
           <td>${paymentBadge}</td>
-          <td>${formatCurrency(total)}</td>
+          <td>${window.formatCurrency(total)}</td>
           <td>
             <button class="btn-icon-small" onclick="ManagerBooking.deleteBooking(${booking.id})" title="Hủy">
               <i class="fa-solid fa-trash"></i>
@@ -192,7 +193,7 @@ const ManagerBooking = (() => {
       const totalHours = endHour - startHour;
       const price = totalHours * 100000;
 
-      const facilityId = state?.managerFacilityId || state?.selectedFacilityId;
+      const facilityId = window.state?.managerFacilityId || window.state?.selectedFacilityId;
       if (!facilityId) {
         alert("Vui lòng chọn cơ sở quản lý trước khi tạo booking.");
         return;
