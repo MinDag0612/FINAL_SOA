@@ -1,4 +1,22 @@
 README – Kiến trúc Microservice với Nginx, Database và JWT
+
+TAI LIEU THAM KHAO:
+- QUICK_START_NGROK.md - Hướng dẫn nhanh chạy hệ thống với Ngrok
+- NGROK_SETUP_GUIDE.md - Hướng dẫn chi tiết setup Ngrok
+- YEU_CAU_3_DANH_SACH_API.md - Danh sách đầy đủ 53 APIs
+
+QUICK START:
+Chạy hệ thống với Static Ngrok Domain (khuyến nghị):
+    ./start_with_static_ngrok.sh
+
+Hoặc với Random Domain (tự động update config):
+    ./start_with_random_ngrok.sh
+
+Hoặc chỉ localhost (không payment callback):
+    docker-compose up -d
+
+============================================================================================
+
 1. Cách hoạt động của Nginx
 
     - Trong dự án này, Nginx đóng vai trò là reverse proxy:
@@ -73,12 +91,212 @@ Front-end
   - Trang đăng nhập/đăng ký: http://localhost/ui/Login/Login.html
   - Trang dashboard khách hàng: http://localhost/ui/Homepage/homepage.html
 - API từ UI gọi qua Nginx cùng cổng 80 (base: http://localhost), các path /auth/, /booking/, /billing/, /court/, /facility/, /session/ đã được proxy sẵn tới API Gateway.
-- Nếu dùng cổng public/ngrok cho SePay, cấu hình front:
-- `localStorage.soa_payment_method = "cash"`
-  - `localStorage.soa_return_url = "https://hyperpathetic-fugally-erin.ngrok-free.dev/ui/Homepage/homepage.html"` (hoặc domain ngrok bạn đang dùng)
-  - `localStorage.soa_api_base = "http://localhost"` (gọi API qua Nginx nội bộ)
 
-3. Cấu trúc folder service
+---------------------------------------------------------------------------------------------
+
+4. CẤU HÌNH VÀ SỬ DỤNG NGROK (Cho SePay Payment Gateway)
+************************************************************************************************
+
+Ngrok được dùng để expose localhost ra internet, cần thiết cho SePay callback (IPN/Return URL).
+
+CAC FILE CAN CAU HINH NGROK URL:
+============================================
+
+1. **Billing/core/.env** (Backend - QUAN TRỌNG NHẤT):
+   ```
+   BACKEND_PUBLIC_URL=https://your-domain.ngrok-free.dev
+   FRONTEND_URL=https://your-domain.ngrok-free.dev/ui
+   ```
+
+2. **UI/Homepage/homepage.html** (Frontend config):
+   ```javascript
+   window.CONFIG = {
+       BACKEND_PUBLIC_URL: 'https://your-domain.ngrok-free.dev',
+       ...
+   }
+   ```
+
+CACH CHAY NGROK - BUOC CHI TIET:
+============================================
+
+** Bước 1: Start Docker Compose **
+```bash
+cd /Users/zitqan/Documents/FINAL_SOA
+docker-compose up -d
+```
+
+** Bước 2: Khởi động Ngrok **
+```bash
+# Mở terminal mới, chạy ngrok expose port 80
+ngrok http 80
+
+# Hoặc nếu có ngrok config với domain tĩnh:
+ngrok http 80 --domain=your-static-domain.ngrok-free.dev
+```
+
+Ngrok sẽ hiển thị:
+```
+Forwarding  https://abc-def-ghi.ngrok-free.dev -> http://localhost:80
+```
+
+** Bước 3: Copy ngrok URL và cập nhật config **
+```bash
+# Sử dụng script tự động (KHUYẾN NGHỊ)
+./update_ngrok_url.sh https://abc-def-ghi.ngrok-free.dev
+
+# Script sẽ tự động:
+# - Backup các file cũ
+# - Update BACKEND_PUBLIC_URL trong Billing/core/.env
+# - Update BACKEND_PUBLIC_URL trong UI/Homepage/homepage.html
+# - Hỏi bạn có muốn rebuild services không
+```
+
+** Bước 4: Rebuild services để áp dụng config **
+```bash
+# Cách 1: Rebuild tất cả services (nhanh nhất)
+./rebuild_fixed_services.sh
+
+# Cách 2: Chỉ restart services cần thiết
+docker-compose restart billing_api nginx
+
+# Cách 3: Rebuild từng service riêng
+docker-compose up -d --build billing_api
+docker-compose restart nginx
+```
+
+** Bước 5: Verify cấu hình **
+```bash
+# Kiểm tra .env đã update chưa
+cat Billing/core/.env | grep BACKEND_PUBLIC_URL
+
+# Kiểm tra HTML đã update chưa
+cat UI/Homepage/homepage.html | grep BACKEND_PUBLIC_URL
+
+# Test truy cập qua ngrok
+curl https://your-domain.ngrok-free.dev/health -H "ngrok-skip-browser-warning: true"
+```
+
+WORKFLOW KHI TAT MAY VA CHAY LAI:
+============================================
+
+** Kịch bản: Ngrok domain thay đổi sau khi restart **
+
+1. **Tắt máy / Stop Docker:**
+   ```bash
+   docker-compose down
+   # Ngrok sẽ tự tắt khi tắt terminal
+   ```
+
+2. **Mở máy lại và khởi động:**
+   ```bash
+   # Bước 1: Start Docker
+   cd /Users/zitqan/Documents/FINAL_SOA
+   docker-compose up -d
+   
+   # Bước 2: Start Ngrok (DOMAIN MỚI SẼ KHÁC)
+   ngrok http 80
+   # Output: https://NEW-RANDOM-DOMAIN.ngrok-free.dev
+   
+   # Bước 3: Update config với domain mới
+   ./update_ngrok_url.sh https://NEW-RANDOM-DOMAIN.ngrok-free.dev
+   
+   # Bước 4: Rebuild services
+   ./rebuild_fixed_services.sh
+   ```
+
+3. **Kiểm tra hệ thống:**
+   ```bash
+   # Test backend health
+   curl https://NEW-RANDOM-DOMAIN.ngrok-free.dev/health \
+     -H "ngrok-skip-browser-warning: true"
+   
+   # Test frontend
+   open https://NEW-RANDOM-DOMAIN.ngrok-free.dev/ui/Homepage/homepage.html
+   ```
+
+GIAI PHAP: SU DUNG NGROK STATIC DOMAIN (KHUYEN NGHI)
+============================================
+
+Để KHÔNG phải update config mỗi lần restart, dùng Ngrok Static Domain:
+
+** Bước 1: Đăng ký Ngrok Account (Free/Paid) **
+- Truy cập: https://dashboard.ngrok.com/
+- Lấy authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
+
+** Bước 2: Config Ngrok với authtoken **
+```bash
+ngrok config add-authtoken YOUR_AUTHTOKEN
+```
+
+** Bước 3: Claim Static Domain **
+- Free tier: 1 static domain (ví dụ: my-app-name.ngrok-free.dev)
+- Paid tier: Custom domains
+
+** Bước 4: Sử dụng Static Domain **
+```bash
+# Start ngrok với domain tĩnh
+ngrok http 80 --domain=my-app-name.ngrok-free.dev
+```
+
+** Bước 5: Config một lần duy nhất **
+```bash
+# Chỉ cần chạy 1 LẦN với static domain
+./update_ngrok_url.sh https://my-app-name.ngrok-free.dev
+./rebuild_fixed_services.sh
+
+# Sau này mỗi lần restart chỉ cần:
+docker-compose up -d
+ngrok http 80 --domain=my-app-name.ngrok-free.dev
+# KHÔNG CẦN UPDATE CONFIG LẠI!
+```
+
+CHECKLIST: NGROK DA HOAT DONG DUNG?
+============================================
+
+[OK] Ngrok đang chạy và hiển thị Forwarding URL
+[OK] File Billing/core/.env có BACKEND_PUBLIC_URL đúng
+[OK] File UI/Homepage/homepage.html có BACKEND_PUBLIC_URL đúng
+[OK] Docker services đã được rebuild sau khi update config
+[OK] Truy cập https://your-domain.ngrok-free.dev/health trả về 200
+[OK] Truy cập https://your-domain.ngrok-free.dev/ui/Homepage/homepage.html hiển thị UI
+[OK] Payment flow hoạt động (tạo booking → thanh toán → callback từ SePay)
+
+LUU Y QUAN TRONG:
+============================================
+
+1. **Ngrok Free**: Domain thay đổi mỗi lần restart → Phải update config lại
+2. **Ngrok Static Domain**: Domain không đổi → Chỉ config 1 lần
+3. **Rebuild services**: BẮT BUỘC sau khi update .env, nếu không services vẫn dùng config cũ
+4. **Nginx cần restart**: Để apply config mới từ volume mount
+5. **Cache browser**: Clear cache nếu frontend vẫn dùng URL cũ (Ctrl+Shift+R)
+6. **SePay Test Mode**: Đang dùng sandbox, không cần domain thật cho production
+
+TROUBLESHOOTING:
+============================================
+
+** Vấn đề 1: Payment callback không về **
+→ Kiểm tra BACKEND_PUBLIC_URL trong Billing/core/.env
+→ Verify SePay đang gọi đúng domain ngrok
+→ Check logs: docker-compose logs -f billing_api
+
+** Vấn đề 2: Frontend gọi localhost thay vì ngrok **
+→ Check window.CONFIG trong homepage.html
+→ Clear browser cache (Ctrl+Shift+R)
+→ Verify HTML đã được reload (check View Source)
+
+** Vấn đề 3: Ngrok "ERR_NGROK_6024" (domain changed) **
+→ Update config với domain mới
+→ Hoặc dùng static domain để tránh issue này
+
+** Vấn đề 4: Services không apply config mới **
+→ Rebuild services: ./rebuild_fixed_services.sh
+→ Hoặc: docker-compose restart billing_api nginx
+
+** Vấn đề 5: Mixed content error (HTTP/HTTPS) **
+→ Đảm bảo tất cả URLs dùng HTTPS khi chạy qua ngrok
+→ Check không có hardcoded http:// URLs trong frontend
+
+5. Cấu trúc folder service
 ************************************************************************************************
 service_name/
 ├── controller/

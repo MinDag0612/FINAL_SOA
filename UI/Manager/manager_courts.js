@@ -118,7 +118,7 @@ const ManagerCourts = (() => {
     return `
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-icon">📍</div>
+          <div class="stat-icon"><i class="fa-solid fa-map-marker-alt"></i></div>
           <div class="stat-content">
             <div class="stat-label">Tổng Sân</div>
             <div class="stat-value">${totalCourts}</div>
@@ -132,7 +132,7 @@ const ManagerCourts = (() => {
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">⏱️</div>
+          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
           <div class="stat-content">
             <div class="stat-label">Tổng Giờ Đặt</div>
             <div class="stat-value">${totalHours.toFixed(1)}h</div>

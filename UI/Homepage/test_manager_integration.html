@@ -263,7 +263,7 @@
             
             detailsDiv.innerHTML = details;
             if (error) {
-                detailsDiv.innerHTML += `<div class="test-error">❌ ${error}</div>`;
+                detailsDiv.innerHTML += `<div class="test-error">[FAIL] ${error}</div>`;
             }
 
             if (status === 'passed') {
@@ -313,7 +313,7 @@
             }
 
             authToken = response.access_token;
-            return `✅ Token received: ${authToken.substring(0, 50)}...`;
+            return `[OK] Token received: ${authToken.substring(0, 50)}...`;
         }
 
         async function test2_JWTStructure() {
@@ -333,7 +333,7 @@
                 throw new Error(`Expected role=manager, got ${payload.infor.role}`);
             }
 
-            return `✅ Token valid<br>- User ID: ${payload.sub}<br>- Email: ${payload.infor.email}<br>- Role: ${payload.infor.role}`;
+            return `[OK] Token valid<br>- User ID: ${payload.sub}<br>- Email: ${payload.infor.email}<br>- Role: ${payload.infor.role}`;
         }
 
         async function test3_LoadFacilities() {
@@ -354,7 +354,7 @@
                 throw new Error(`Facility ID ${testFacilityId} not found in manager's facilities`);
             }
 
-            return `✅ Found ${response.data.length} facilities<br>- Using: ${facility.name} (ID: ${testFacilityId})`;
+            return `[OK] Found ${response.data.length} facilities<br>- Using: ${facility.name} (ID: ${testFacilityId})`;
         }
 
         async function test4_LoadCourts() {
@@ -371,7 +371,7 @@
 
             testCourtId = courts[0].court_id;
 
-            return `✅ Found ${courts.length} courts<br>- First court: ${courts[0].name} (ID: ${testCourtId})`;
+            return `[OK] Found ${courts.length} courts<br>- First court: ${courts[0].name} (ID: ${testCourtId})`;
         }
 
         async function test5_LoadBookings() {
@@ -382,7 +382,7 @@
                 throw new Error('Invalid bookings response format');
             }
 
-            return `✅ Found ${response.data.length} bookings for ${today}`;
+            return `[OK] Found ${response.data.length} bookings for ${today}`;
         }
 
         async function test6_CreateWalkIn() {
@@ -412,7 +412,7 @@
 
             testBookingId = response.data.booking_id;
 
-            return `✅ Booking created<br>- ID: ${testBookingId}<br>- Court: ${testCourtId}<br>- Time: ${startHour}:00 - ${endHour}:00`;
+            return `[OK] Booking created<br>- ID: ${testBookingId}<br>- Court: ${testCourtId}<br>- Time: ${startHour}:00 - ${endHour}:00`;
         }
 
         async function test7_VerifyBookingCreated() {
@@ -427,7 +427,7 @@
                 throw new Error(`Booking ${testBookingId} not found in list after creation!`);
             }
 
-            return `✅ Booking verified in list<br>- Status: ${booking.status}<br>- Items: ${booking.items.length}`;
+            return `[OK] Booking verified in list<br>- Status: ${booking.status}<br>- Items: ${booking.items.length}`;
         }
 
         async function test8_ReportFilterStatus() {
@@ -455,7 +455,7 @@
                 throw new Error(`Expected 2 bookings (confirmed+completed), got ${includedCount}`);
             }
 
-            return `✅ Status filter working<br>- Total: 4 bookings<br>- Filtered: 2 bookings (pending & cancelled excluded)`;
+            return `[OK] Status filter working<br>- Total: 4 bookings<br>- Filtered: 2 bookings (pending & cancelled excluded)`;
         }
 
         async function test9_RevenueCalculation() {
@@ -472,7 +472,7 @@
                 }
             });
 
-            return `✅ Revenue calculated<br>- Confirmed bookings: ${confirmedCount}<br>- Total revenue: ${totalRevenue.toLocaleString('vi-VN')} đ`;
+            return `[OK] Revenue calculated<br>- Confirmed bookings: ${confirmedCount}<br>- Total revenue: ${totalRevenue.toLocaleString('vi-VN')} đ`;
         }
 
         async function test10_CourtsTimeline() {
@@ -504,7 +504,7 @@
                 });
             });
 
-            return `✅ Timeline rendering simulated<br>- Courts: ${courts.length}<br>- Booked slots: ${bookedSlotsCount}`;
+            return `[OK] Timeline rendering simulated<br>- Courts: ${courts.length}<br>- Booked slots: ${bookedSlotsCount}`;
         }
 
         async function test11_BookingTable() {
@@ -520,12 +520,12 @@
                 if (!sample.status) throw new Error('Missing status');
             }
 
-            return `✅ Booking table data valid<br>- Rows: ${bookings.length}<br>- All have required fields`;
+            return `[OK] Booking table data valid<br>- Rows: ${bookings.length}<br>- All have required fields`;
         }
 
         async function test12_Cleanup() {
             if (!testBookingId) {
-                return '⚠️ No test booking to clean up';
+                return '[WARN] No test booking to clean up';
             }
 
             try {
@@ -534,9 +534,9 @@
                     body: JSON.stringify({ reason: 'Test cleanup' })
                 });
 
-                return `✅ Test booking ${testBookingId} cancelled successfully`;
+                return `[OK] Test booking ${testBookingId} cancelled successfully`;
             } catch (err) {
-                return `⚠️ Could not cancel booking: ${err.message}`;
+                return `[WARN] Could not cancel booking: ${err.message}`;
             }
         }
 
@@ -577,17 +577,17 @@
 
             for (const test of testsToRun) {
                 if (shouldStop) {
-                    setTestStatus(test.id, 'pending', '⏸️ Stopped by user');
+                    setTestStatus(test.id, 'pending', '[PAUSE] Stopped by user');
                     continue;
                 }
 
-                setTestStatus(test.id, 'running', '⏳ Running...');
+                setTestStatus(test.id, 'running', 'Running...');
 
                 try {
                     const result = await test.fn();
                     setTestStatus(test.id, 'passed', result);
                 } catch (err) {
-                    setTestStatus(test.id, 'failed', '❌ Test failed', err.message);
+                    setTestStatus(test.id, 'failed', '[FAIL] Test failed', err.message);
                     console.error(`Test ${test.id} failed:`, err);
                     
                     // Stop on critical failures
