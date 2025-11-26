@@ -6,10 +6,15 @@ from Notification.models.notification_models import (
     ReminderPayload,
 )
 from Notification.core.mailler_api import send_email_v1
+import requests
+import json
 
 
 class NotificationService:
     """Stub notification service."""
+    url = {
+        "auth": "http://auth_service:8001"
+    }
 
     def __init__(self):
         self._log = NotificationLog(
@@ -20,7 +25,7 @@ class NotificationService:
             sent_at="2024-06-20T08:00:00Z",
         )
         
-        
+    @staticmethod
     def send_email_verify_register(user: dict):
         # Gọi hàm gửi email từ mailler_api
         try:
@@ -36,30 +41,32 @@ class NotificationService:
             }
         except Exception as e:
             raise Exception("Lỗi khi gửi email xác nhận: " + str(e) + " -- from notification service")
-        
+    
+    @staticmethod
+    def booking_confirmed(data: dict) -> dict:
+        try:
+            content = f"""
+                    Your booking is confirmed!
 
-    def send_custom(self, payload: NotificationSendRequest) -> dict:
-        return {
-            "status": "queued",
-            "channels": payload.channels,
-            "recipients": payload.recipients,
-            "message": "Stub send – chưa kết nối dịch vụ email",
-        }
+                    Booking information:
+                    {data}
 
-    def booking_confirmed(self, payload: BookingConfirmedPayload) -> dict:
-        return {
-            "status": "queued",
-            "message": f"Notification stub cho booking {payload.booking_id}",
-        }
+                    Please complete your payment in 10 minutes to secure your reservation.
+                    Thank you for choosing our service.
+                    """
 
-    def reminder(self, payload: ReminderPayload) -> dict:
-        return {
-            "status": "queued",
-            "message": f"Notification nhắc lịch {payload.booking_id}",
-        }
+            send_email_v1(
+                recipient=data["email"],
+                subject="Booking Confirmed - Your Reservation is Successful!",
+                content=content,
+            )
 
-    def logs(self, user_email: str, limit: int = 10) -> List[NotificationLog]:
-        return [
-            self._log.copy(update={"notification_id": idx + 1, "user_email": user_email})
-            for idx in range(min(limit, 3))
-        ]
+            return {
+                "status": "sent",
+                "recipients": data["email"],
+                "message": "Email xác nhận đã được gửi.",
+                "payload_received": data.__dict__
+            }
+        except Exception as e:
+            raise Exception("Lỗi khi gửi email xác nhận booking: " + str(e) + " -- from notification service")
+

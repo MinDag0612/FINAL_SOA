@@ -1,0 +1,14 @@
+manager_id: 2, 4
+
+API:        http://localhost:8005/manager/facilities - GET
+AUTHEN:     JWT - KEY
+PARAMETER:  NONE
+RETURN:     
+            {
+                "status": "success",
+                "data": [
+                    "1: Sport Center A",
+                    "3: Sport Hub C"
+                ]
+            }
+=> Trả về id và tên cơ sở trong "data" của json theo manager_id

@@ -11,10 +11,12 @@ COPY ./Notification /app/Notification
 
 # Cài đặt các dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN chmod +x /app/Notification/start.sh
 
 
 ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Chạy ứng dụng bằng uvicorn
-CMD ["./Notification/start.sh"]
+CMD ["bash", "/app/Notification/start.sh"]
+

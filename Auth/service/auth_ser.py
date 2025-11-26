@@ -42,6 +42,16 @@ class AuthService:
         except Exception as e:
             raise Exception(f"{e} -- from auth service")
         
+    def get_user_by_id(self, user_id: str):
+        try:
+            user = self.repo.get_user_by_id(user_id)
+            if not user:
+                raise Exception("User not found")
+            user.pop('password')  # Remove password before returning
+            return user
+        except Exception as e:
+            raise Exception(f"{e} -- from auth service")
+        
         
         
         

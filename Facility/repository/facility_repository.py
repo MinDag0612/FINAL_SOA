@@ -114,3 +114,23 @@ class FacilityRepository:
             amenities=amenities,
             is_active=bool(row.get("is_active", 1)),
         )
+
+#------------------FOR MANAGER FLOW----------------------------------
+    def get_facilities_by_manager(self, manager_id: int) -> List[str]:
+        try:
+            query = text(
+                """
+                SELECT facility_id, name
+                FROM Facility
+                WHERE user_id = :manager_id AND is_active = 1
+                ORDER BY facility_id
+                """
+            )
+            result = self.db.execute(
+                query,
+                {"manager_id": manager_id}
+            )
+            rows = result.mappings().all()
+            return [f"{row['facility_id']}: {row['name']}" for row in rows]
+        except Exception as e:
+            raise {"error": str(e) + " -- from facility repository"}
