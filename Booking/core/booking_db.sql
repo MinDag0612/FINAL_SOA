@@ -15,7 +15,6 @@ CREATE TABLE bookings (
     payment_method   VARCHAR(50),
     payment_reference VARCHAR(100),
     note             TEXT,
-    hold_expires_at  DATETIME,
     paid_at          DATETIME,
     cancel_reason    TEXT,
     created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -34,10 +33,10 @@ CREATE TABLE booking_items (
 
 CREATE INDEX idx_booking_court_time ON booking_items (court_id, start_time, end_time);
 
-INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, hold_expires_at, paid_at)
+INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, paid_at)
 VALUES
-(1, 1, 'confirmed', 200000, 'paid', 'cash', NULL, NOW()),
-(2, 2, 'pending', 350000, 'pending', 'momo', DATE_ADD(NOW(), INTERVAL 15 MINUTE), NULL);
+(1, 1, 'confirmed', 200000, 'paid', 'cash', NOW()),
+(2, 2, 'pending', 350000, 'pending', 'momo', NULL);
 
 INSERT INTO booking_items (booking_id, court_id, start_time, end_time, price)
 VALUES

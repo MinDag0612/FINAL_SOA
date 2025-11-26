@@ -5,7 +5,7 @@ const START_HOUR = 0;
 const END_HOUR = 24;
 const DEFAULT_VIEW_HOUR = 8; // giờ mặc định khi load vào
 const HOURLY_RATE = 50000; // giá mỗi ô (1 giờ)
-const DEFAULT_PAYMENT_METHOD = localStorage.getItem("soa_payment_method") || "sepay"; // sepay|vnpay
+const DEFAULT_PAYMENT_METHOD = localStorage.getItem("soa_payment_method") || "cash"; // sepay|vnpay|cash
 const PAYMENT_RETURN_URL =
   localStorage.getItem("soa_return_url") || `${window.location.origin}/ui/Homepage/homepage.html`;
 const SAVED_FACILITY = parseInt(localStorage.getItem("soa_facility_id") || "", 10) || null;
@@ -528,6 +528,30 @@ async function bootstrapCustomerView() {
   changeView(defaultView);
   if (!state.selectedFacilityId || !state.selectedDate || SHOULD_PROMPT_SELECTION) {
     openSelectionModal();
+  }
+}
+
+async function handlePaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("status");
+  const invoiceId = params.get("invoice_id");
+  if (!status && !invoiceId) return;
+  try {
+    await refreshBookings();
+    await refreshTransactions();
+    if (status === "success") {
+      showToast(`Thanh toán thành công (HĐ #${invoiceId || "?"}). Đã cập nhật lịch đặt.`);
+    } else {
+      showToast(`Thanh toán thất bại hoặc bị hủy (HĐ #${invoiceId || "?"}).`);
+    }
+  } catch (err) {
+    console.error("Handle payment return failed", err);
+  } finally {
+    params.delete("status");
+    params.delete("invoice_id");
+    const clean = params.toString();
+    const newUrl = clean ? `${window.location.pathname}?${clean}` : window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
   }
 }
 
@@ -1261,7 +1285,10 @@ function processPayment() {
   promise
     .then((res) => {
       console.log("Billing pay response", res);
-      if (method === "sepay" && handleFormHtml(res?.form_html, res?.payment_url, res?.payload)) {
+      if (method === "sepay") {
+        alert("Cổng SePay đã tắt, vui lòng chọn phương thức khác.");
+        return;
+      }
         return;
       }
       if (res?.payment_url) {
@@ -1307,5 +1334,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  bootstrapCustomerView();
+  bootstrapCustomerView().then(() => handlePaymentReturn());
 });

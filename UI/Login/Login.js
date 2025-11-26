@@ -2,7 +2,22 @@ const container = document.querySelector(".container");
 const registerBtn = document.querySelector(".register-btn");
 const loginBtn = document.querySelector(".login-btn");
 
-const API_BASE = localStorage.getItem("soa_api_base") || "http://localhost";
+const resolveBase = () => {
+  const cached = localStorage.getItem("soa_api_base");
+  const current = window.location.origin;
+  if (!cached) return current;
+  try {
+    const cachedUrl = new URL(cached);
+    const currentUrl = new URL(current);
+    const sameHost = cachedUrl.host === currentUrl.host;
+    const sameProtocol = cachedUrl.protocol === currentUrl.protocol;
+    if (sameHost && sameProtocol) return cached;
+  } catch (err) {
+    console.warn("Invalid cached soa_api_base", cached);
+  }
+  return current;
+};
+const API_BASE = resolveBase();
 const LOGIN_MESSAGE = document.getElementById("login-message");
 const REGISTER_MESSAGE = document.getElementById("register-message");
 

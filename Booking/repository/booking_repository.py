@@ -10,19 +10,6 @@ class BookingRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def cleanup_expired_holds(self) -> None:
-        query = text(
-            """
-            UPDATE bookings
-            SET status = 'expired', payment_status = 'expired'
-            WHERE status = 'pending'
-              AND hold_expires_at IS NOT NULL
-              AND hold_expires_at < NOW()
-            """
-        )
-        self.db.execute(query)
-        self.db.commit()
-
     def list_bookings(self, user_id: Optional[int] = None) -> List[Booking]:
         params = {}
         where_clause = ""
@@ -33,7 +20,7 @@ class BookingRepository:
         bookings_query = text(
             f"""
             SELECT booking_id, user_id, facility_id, status, total_amount, payment_status,
-                   payment_method, payment_reference, hold_expires_at, paid_at, note
+                   payment_method, payment_reference, paid_at, note
             FROM bookings
             {where_clause}
             ORDER BY created_at DESC
@@ -53,7 +40,7 @@ class BookingRepository:
                 text(
                     """
                     SELECT booking_id, user_id, facility_id, status, total_amount, payment_status,
-                           payment_method, payment_reference, hold_expires_at, paid_at, note
+                           payment_method, payment_reference, paid_at, note
                     FROM bookings
                     WHERE booking_id = :booking_id
                     """
@@ -73,14 +60,13 @@ class BookingRepository:
         self,
         payload: BookingCreate,
         total_amount: float,
-        hold_expires_at: datetime,
         payment_status: str,
     ) -> Booking:
         result = self.db.execute(
             text(
                 """
-                INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, note, hold_expires_at)
-                VALUES (:user_id, :facility_id, 'pending', :total_amount, :payment_status, :payment_method, :note, :hold_expires_at)
+                INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, note)
+                VALUES (:user_id, :facility_id, 'pending', :total_amount, :payment_status, :payment_method, :note)
                 """
             ),
             {
@@ -90,7 +76,6 @@ class BookingRepository:
                 "payment_status": payment_status,
                 "payment_method": payload.payment_method,
                 "note": payload.note,
-                "hold_expires_at": hold_expires_at,
             },
         )
         booking_id = result.lastrowid
@@ -205,7 +190,6 @@ class BookingRepository:
             JOIN bookings b ON bi.booking_id = b.booking_id
             WHERE bi.court_id = :court_id
               AND b.status IN ('pending', 'confirmed')
-              AND (b.status != 'pending' OR b.hold_expires_at >= NOW())
               AND NOT (bi.end_time <= :start_time OR bi.start_time >= :end_time)
             """
         )
@@ -250,7 +234,6 @@ class BookingRepository:
             payment_status=row.get("payment_status"),
             payment_method=row.get("payment_method"),
             payment_reference=row.get("payment_reference"),
-            hold_expires_at=row.get("hold_expires_at"),
             paid_at=row.get("paid_at"),
             items=items,
         )
