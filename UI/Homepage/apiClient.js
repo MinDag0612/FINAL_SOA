@@ -1,6 +1,25 @@
 (() => {
   const LOGIN_PAGE = "../Login/Login.html";
-  const DEFAULT_BASE = localStorage.getItem("soa_api_base") || window.location.origin;
+
+  // Ưu tiên domain hiện tại; chỉ dùng cache nếu cùng host để tránh gọi nhầm về localhost khi chạy qua ngrok
+  const resolveBase = () => {
+    const cached = localStorage.getItem("soa_api_base");
+    const current = window.location.origin;
+    if (!cached) return current;
+    try {
+      const cachedUrl = new URL(cached);
+      const currentUrl = new URL(current);
+      const sameHost = cachedUrl.host === currentUrl.host;
+      const sameProtocol = cachedUrl.protocol === currentUrl.protocol;
+      // Nếu trang đang ở https (ngrok) nhưng cache là http, ưu tiên current để tránh mixed-content
+      if (sameHost && sameProtocol) return cached;
+    } catch (err) {
+      console.warn("Invalid soa_api_base cache", cached);
+    }
+    return current;
+  };
+  const DEFAULT_BASE = resolveBase();
+  console.info("SOA API base", DEFAULT_BASE);
 
   const getAuth = () => {
     try {

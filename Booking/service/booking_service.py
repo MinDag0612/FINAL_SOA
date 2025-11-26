@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 import httpx
@@ -25,14 +25,11 @@ class BookingService:
         self.court_service_url = os.getenv("COURT_SERVICE_URL", "http://court_api:8004")
         self.facility_service_url = os.getenv("FACILITY_SERVICE_URL", "http://facility_api:8005")
         self.billing_service_url = os.getenv("BILLING_SERVICE_URL", "http://billing_api:8002")
-        self.hold_minutes = int(os.getenv("BOOKING_HOLD_MINUTES", "15"))
 
     def list_bookings(self, user_id: Optional[int] = None) -> List[Booking]:
-        self.repo.cleanup_expired_holds()
         return self.repo.list_bookings(user_id=user_id)
 
     def get_booking(self, booking_id: int, user_id: Optional[int] = None) -> Booking:
-        self.repo.cleanup_expired_holds()
         booking = self.repo.get_booking(booking_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found")
@@ -40,21 +37,23 @@ class BookingService:
             raise HTTPException(status_code=403, detail="Forbidden")
         return booking
 
+<<<<<<< HEAD
+    def create_booking(self, payload: BookingCreate) -> dict:
+=======
     def create_booking(self, payload: BookingCreate, email: str) -> dict:
         self.repo.cleanup_expired_holds()
+>>>>>>> MAIN
         if payload.user_id is None:
             raise HTTPException(status_code=400, detail="Missing user_id for booking")
         self._validate_items(payload.items)
         self._verify_facility_and_courts(payload.facility_id, [i.court_id for i in payload.items])
         self._ensure_slots_available(payload.items)
 
-        hold_expires_at = datetime.utcnow() + timedelta(minutes=self.hold_minutes)
         total_amount = self._calculate_total(payload.items)
 
         booking = self.repo.create_booking(
             payload=payload,
             total_amount=total_amount,
-            hold_expires_at=hold_expires_at,
             payment_status="pending",
         )
 
