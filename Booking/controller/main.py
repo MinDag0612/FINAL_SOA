@@ -98,7 +98,9 @@ def update_booking(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return service.update_booking(booking_id, payload, user_id=int(user["sub"]))
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return service.update_booking(booking_id, payload, user_id=user_id)
 
 
 @app.post("/booking/{booking_id}/cancel")
@@ -108,7 +110,9 @@ def cancel_booking(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return service.cancel_booking(booking_id, payload, user_id=int(user["sub"]))
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return service.cancel_booking(booking_id, payload, user_id=user_id)
 
 
 @app.delete("/booking/{booking_id}")

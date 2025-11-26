@@ -202,6 +202,17 @@
           throw err;
         }
       },
+      updateStatus: async (bookingId, status) => {
+        try {
+          return request(`/booking/booking/${bookingId}`, {
+            method: "PUT",
+            body: JSON.stringify({ status }),
+          });
+        } catch (err) {
+          console.error("Booking update status error:", err);
+          throw err;
+        }
+      },
     },
     facility: {
       list: async () => {
@@ -339,6 +350,21 @@
         } catch (err) {
           console.error("Get playtime plot error:", err);
           throw err;
+        }
+      },
+    },
+    notification: {
+      sendBookingConfirmed: async (payload) => {
+        try {
+          // payload: { booking_id, user_email, scheduled_time, court_name }
+          return await request("/notification/send-booking-confirmed", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        } catch (err) {
+          console.error("Send booking confirmation email error:", err);
+          // Don't throw - email failure shouldn't block booking flow
+          return { status: "error", message: err.message };
         }
       },
     },
