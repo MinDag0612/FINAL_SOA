@@ -122,7 +122,7 @@
 <body>
     <div class="payment-container">
         <div class="logo">
-            <h1>🏸 Mock Payment Gateway</h1>
+            <h1>Mock Payment Gateway</h1>
             <p>Test Payment Interface</p>
         </div>
 
@@ -147,18 +147,15 @@
 
         <div class="action-buttons">
             <button class="btn btn-success" onclick="handlePaymentSuccess()">
-                ✅ Thanh toán thành công
-            </button>
-            <button class="btn btn-danger" onclick="handlePaymentFailed()">
-                ❌ Thanh toán thất bại
+                Thanh toán
             </button>
             <button class="btn btn-secondary" onclick="handlePaymentCancel()">
-                ↩️ Hủy thanh toán
+                Hủy thanh toán
             </button>
         </div>
 
         <div class="note">
-            <strong>⚠️ Lưu ý:</strong> Đây là mock payment gateway để test. Trong production, tích hợp SePay thật.
+            <strong>Lưu ý:</strong> Đây là mock payment gateway để test. Trong production, tích hợp SePay thật.
         </div>
     </div>
 
@@ -178,6 +175,11 @@
             bookingId = match[1];
         }
 
+        // DEBUG: Log URLs
+        console.log('[Mock Payment] Current URL:', window.location.href);
+        console.log('[Mock Payment] returnUrl:', returnUrl);
+        console.log('[Mock Payment] cancelUrl:', cancelUrl);
+        
         // Display payment info
         document.getElementById('orderCode').textContent = orderCode;
         document.getElementById('bookingId').textContent = bookingId;
@@ -187,18 +189,70 @@
             currency: 'VND'
         }).format(amount);
 
-        function handlePaymentSuccess() {
-            const successUrl = `${returnUrl}&status=success&orderCode=${orderCode}&transactionId=MOCK-TXN-${Date.now()}&amount=${amount}`;
-            window.location.href = successUrl;
+        async function handlePaymentSuccess() {
+            try {
+                // First, notify backend about payment success
+                const backendReturnUrl = `${window.location.origin}/billing/sepay/return`;
+                const params = new URLSearchParams({
+                    status: 'success',
+                    booking_id: bookingId,
+                    orderCode: orderCode,
+                    transactionId: `MOCK-TXN-${Date.now()}`,
+                    amount: amount
+                });
+                
+                console.log('[Mock Payment] Notifying backend:', backendReturnUrl);
+                
+                // Call backend to process payment
+                const response = await fetch(`${backendReturnUrl}?${params.toString()}`, {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.error('[Mock Payment] Backend notification failed:', response.status);
+                }
+                
+                // Then redirect to frontend
+                const successUrl = `${returnUrl}&status=success&orderCode=${orderCode}&transactionId=MOCK-TXN-${Date.now()}&amount=${amount}`;
+                window.location.href = successUrl;
+            } catch (err) {
+                console.error('[Mock Payment] Error:', err);
+                // Still redirect even if backend call fails
+                const successUrl = `${returnUrl}&status=success&orderCode=${orderCode}&transactionId=MOCK-TXN-${Date.now()}&amount=${amount}`;
+                window.location.href = successUrl;
+            }
         }
 
-        function handlePaymentFailed() {
-            const failUrl = `${returnUrl}&status=failed&orderCode=${orderCode}`;
-            window.location.href = failUrl;
-        }
-
-        function handlePaymentCancel() {
-            window.location.href = cancelUrl;
+        async function handlePaymentCancel() {
+            try {
+                // Notify backend about cancellation
+                const backendReturnUrl = `${window.location.origin}/billing/sepay/return`;
+                const params = new URLSearchParams({
+                    status: 'cancel',
+                    booking_id: bookingId,
+                    orderCode: orderCode
+                });
+                
+                console.log('[Mock Payment] Canceling payment:', backendReturnUrl);
+                
+                // Call backend to cancel payment
+                await fetch(`${backendReturnUrl}?${params.toString()}`, {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                }).catch(err => console.error('[Mock Payment] Cancel failed:', err));
+                
+                // Redirect with cancel status
+                const cancelRedirectUrl = `${cancelUrl}&payment=failed&booking_id=${bookingId}&reason=user_cancelled`;
+                window.location.href = cancelRedirectUrl;
+            } catch (err) {
+                console.error('[Mock Payment] Error:', err);
+                window.location.href = cancelUrl;
+            }
         }
     </script>
 </body>

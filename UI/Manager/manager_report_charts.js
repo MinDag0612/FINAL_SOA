@@ -148,12 +148,18 @@ const ManagerReportCharts = (() => {
   const renderUsageStats = (bookings, courts) => {
     if (!bookings || !courts) return '';
 
-    // Calculate stats
-    const totalBookings = bookings.length;
-    const totalRevenue = bookings.reduce((sum, b) => sum + (b.total || b.total_price || 0), 0);
-    const totalHours = bookings.reduce((sum, b) => {
+    // Calculate stats - only count confirmed/completed bookings
+    const validBookings = bookings.filter(b => {
+      const status = b.status || b.uiStatus;
+      return status === 'confirmed' || status === 'completed';
+    });
+    
+    const totalBookings = validBookings.length;
+    const totalRevenue = validBookings.reduce((sum, b) => sum + (b.total || b.total_price || 0), 0);
+    const totalHours = validBookings.reduce((sum, b) => {
       const start = new Date(b.start_time || b.start);
       const end = new Date(b.end_time || b.end);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return sum;
       return sum + (end - start) / (1000 * 60 * 60);
     }, 0);
 
@@ -178,7 +184,7 @@ const ManagerReportCharts = (() => {
           <div class="stat-icon"><i class="fa-solid fa-dollar-sign"></i></div>
           <div class="stat-content">
             <div class="stat-label">Doanh Thu</div>
-            <div class="stat-value">${formatCurrency(totalRevenue)}</div>
+            <div class="stat-value">${window.formatCurrency ? window.formatCurrency(totalRevenue) : totalRevenue.toLocaleString('vi-VN') + ' đ'}</div>
             <div class="stat-change">+8% so với tuần trước</div>
           </div>
         </div>
@@ -188,7 +194,7 @@ const ManagerReportCharts = (() => {
           <div class="stat-content">
             <div class="stat-label">Tổng Giờ Chơi</div>
             <div class="stat-value">${totalHours.toFixed(1)}h</div>
-            <div class="stat-change">Trung bình ${(totalHours / totalBookings).toFixed(1)}h/booking</div>
+            <div class="stat-change">Trung bình ${totalBookings > 0 ? (totalHours / totalBookings).toFixed(1) : 0}h/booking</div>
           </div>
         </div>
 

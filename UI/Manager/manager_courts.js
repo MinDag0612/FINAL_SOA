@@ -39,7 +39,8 @@ const ManagerCourts = (() => {
         console.log(`[ManagerCourts] Court ${court.name} (id=${court.id}) has ${courtBookings.length} bookings:`, courtBookings);
       }
       
-      const bookedSlots = new Set();
+      // Map slot hours to their booking status: confirmed=booked (red), pending=pending (yellow), else=free (white)
+      const slotStatus = {};
       courtBookings.forEach(booking => {
         const start = parseDateSafe(booking.start_time || booking.start);
         const end = parseDateSafe(booking.end_time || booking.end);
@@ -47,15 +48,21 @@ const ManagerCourts = (() => {
           console.warn("[ManagerCourts] Invalid booking time range", booking);
           return;
         }
+        const bookingStatus = booking.status || booking.uiStatus || 'pending';
         for (let h = start.getHours(); h < end.getHours(); h++) {
-          bookedSlots.add(h);
+          // Only show color for confirmed (red) or pending (yellow), cancelled/expired = white
+          if (bookingStatus === 'confirmed') {
+            slotStatus[h] = 'slot-booked'; // Red
+          } else if (bookingStatus === 'pending' && !slotStatus[h]) {
+            slotStatus[h] = 'slot-pending'; // Yellow
+          }
+          // cancelled/expired remain as 'slot-free' (white)
         }
       });
 
       let timelineHtml = `<div class="timeline-row">`;
       slots.forEach(h => {
-        const isBooked = bookedSlots.has(h);
-        const slotClass = isBooked ? 'slot-booked' : 'slot-free';
+        const slotClass = slotStatus[h] || 'slot-free';
         const slotLabel = `${String(h).padStart(2, '0')}:00`;
         timelineHtml += `<div class="timeline-slot ${slotClass}" title="${slotLabel}">${h}</div>`;
       });
@@ -77,7 +84,8 @@ const ManagerCourts = (() => {
       </div>
       <div class="legend-row">
         <div><span class="legend-box slot-free"></span> Trống</div>
-        <div><span class="legend-box slot-booked"></span> Đã đặt</div>
+        <div><span class="legend-box slot-pending"></span> Chờ Xác Nhận</div>
+        <div><span class="legend-box slot-booked"></span> Đã Xác Nhận</div>
       </div>
     `;
 
@@ -125,14 +133,12 @@ const ManagerCourts = (() => {
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📅</div>
           <div class="stat-content">
             <div class="stat-label">Booking Hôm Nay</div>
             <div class="stat-value">${totalBookings}</div>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">⏱️</div>
           <div class="stat-content">
             <div class="stat-label">Tổng Giờ Đặt</div>
             <div class="stat-value">${totalHours.toFixed(1)}h</div>

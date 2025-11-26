@@ -92,7 +92,9 @@ class BookingService:
 
     def update_booking(self, booking_id: int, payload: BookingUpdate, user_id: Optional[int] = None) -> Booking:
         booking = self.get_booking(booking_id, user_id)
-        if booking.status not in ("pending", "confirmed"):
+        # Manager (user_id=None) có thể update booking ở bất kỳ trạng thái nào
+        # Customer chỉ có thể update khi status là pending hoặc confirmed
+        if user_id is not None and booking.status not in ("pending", "confirmed"):
             raise HTTPException(status_code=400, detail="Cannot update booking in current status")
         updated = self.repo.update_booking(booking_id, payload)
         if not updated:
