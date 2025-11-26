@@ -26,7 +26,14 @@ async def proxy(service: str, path: str, request: Request):
     body = await request.body()
 
     async with httpx.AsyncClient() as client:
-        resp = await client.request(method, url, headers=headers, content=body, timeout=None)
+        resp = await client.request(
+            method,
+            url,
+            headers=headers,
+            content=body,
+            params=request.query_params,  # giữ nguyên query string (vd: status, invoice_id)
+            timeout=None,
+        )
 
     return Response(
         content=resp.content,

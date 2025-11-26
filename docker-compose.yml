@@ -355,26 +355,9 @@ services:
       - ./:/app
     depends_on:
       - apigateway
-      - sepay_php
+      # - sepay_php
     networks:
       - backend
-
-  # =====================
-  # SEPAY PHP SERVICE (checkout.php)
-  # =====================
-  sepay_php:
-    build:
-      context: ./
-      dockerfile: Billing/php/Dockerfile
-    container_name: sepay_php
-    restart: always
-    env_file:
-      - Billing/core/.env
-    ports:
-      - "9000:80"
-    networks:
-      - backend
-
 
 networks:
   backend:

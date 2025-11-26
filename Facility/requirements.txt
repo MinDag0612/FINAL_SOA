@@ -7,3 +7,4 @@ uvicorn
 pwdlib[argon2]
 pymysql
 cryptography
+alembic==1.13.2

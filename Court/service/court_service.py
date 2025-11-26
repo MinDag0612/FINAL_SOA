@@ -51,7 +51,7 @@ class CourtService:
             raise HTTPException(status_code=404, detail="Court not found")
 
         slots: List[str] = []
-        hours = court.available_hours or [f"{hour:02d}:00" for hour in range(6, 23)]
+        hours = court.available_hours or [f"{hour:02d}:00" for hour in range(0, 24)]
         for start in hours:
             try:
                 start_dt = datetime.strptime(start, "%H:%M")

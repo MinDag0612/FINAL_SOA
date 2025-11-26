@@ -36,7 +36,6 @@ class Booking(BaseModel):
     payment_status: Optional[str] = None
     payment_method: Optional[str] = None
     payment_reference: Optional[str] = None
-    hold_expires_at: Optional[datetime] = None
     paid_at: Optional[datetime] = None
 
 

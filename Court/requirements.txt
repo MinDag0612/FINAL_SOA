@@ -7,4 +7,8 @@ uvicorn
 pwdlib[argon2]
 pymysql
 cryptography
+<<<<<<< HEAD
 requests
+=======
+alembic==1.13.2
+>>>>>>> 2f647f178b4616b6ce97b54de11a0468833f0cbb
