@@ -332,11 +332,44 @@ const PaymentHandler = (() => {
 
     try {
       if (paymentStatus === "success" && Number.isFinite(bookingId)) {
-        const bookingResponse = await window.api.booking.get(bookingId, { forceRefresh: true });
+        // Wait 1 second for backend to process payment notification
+        console.log("[PaymentHandler] Waiting for backend to process payment...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Retry mechanism: try 3 times with 1s delay between attempts
+        let isConfirmed = false;
+        let bookingResponse = null;
+        
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          console.log(`[PaymentHandler] Verifying booking status (attempt ${attempt}/3)...`);
+          
+          try {
+            bookingResponse = await window.api.booking.get(bookingId, { forceRefresh: true });
+            const booking = bookingResponse?.data || bookingResponse;
+            const bookingStatus = booking?.status;
+            const bookingPaymentStatus = booking?.payment_status || booking?.paymentStatus;
+            isConfirmed = bookingStatus === "confirmed" || bookingPaymentStatus === "paid";
+            
+            console.log(`[PaymentHandler] Attempt ${attempt} - Status: ${bookingStatus}, Payment: ${bookingPaymentStatus}, Confirmed: ${isConfirmed}`);
+            
+            if (isConfirmed) {
+              break; // Success! Exit retry loop
+            }
+            
+            // If not confirmed yet and we have more attempts, wait before retrying
+            if (attempt < 3) {
+              console.log(`[PaymentHandler] Not confirmed yet, waiting 1s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (retryErr) {
+            console.error(`[PaymentHandler] Attempt ${attempt} failed:`, retryErr);
+            if (attempt === 3) throw retryErr; // Re-throw on last attempt
+          }
+        }
+        
         const booking = bookingResponse?.data || bookingResponse;
         const bookingStatus = booking?.status;
         const bookingPaymentStatus = booking?.payment_status || booking?.paymentStatus;
-        const isConfirmed = bookingStatus === "confirmed" || bookingPaymentStatus === "paid";
 
         result.success = isConfirmed;
         result.status = isConfirmed ? "confirmed" : bookingPaymentStatus || "pending";
@@ -360,12 +393,15 @@ const PaymentHandler = (() => {
       result.message = error.message || "Không thể xác minh trạng thái thanh toán.";
     }
 
+    // Force reload bookings to update UI
+    console.log("[PaymentHandler] Reloading bookings to update UI...");
     if (typeof window.reloadBookingsForSelection === "function") {
       await window.reloadBookingsForSelection({ forceRefresh: true });
     } else if (typeof window.refreshBookings === "function") {
       await window.refreshBookings({ forceRefresh: true });
     }
 
+    // Clean URL params
     window.history.replaceState({}, document.title, window.location.pathname);
     return result;
   }

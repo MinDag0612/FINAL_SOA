@@ -6,7 +6,9 @@ const END_HOUR = 24;
 const DEFAULT_VIEW_HOUR = 8;
 const HOURLY_RATE = 50000;
 const SAVED_FACILITY = parseInt(localStorage.getItem("soa_facility_id") || "", 10) || null;
-const SAVED_DATE = localStorage.getItem("soa_booking_date") || null;
+const TODAY = new Date().toISOString().split("T")[0];
+const TOMORROW = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+const SAVED_DATE = localStorage.getItem("soa_booking_date") || TODAY;
 const SHOULD_PROMPT_SELECTION = !SAVED_FACILITY;
 const SLOT_STEP_MINUTES = 60;
 
@@ -62,6 +64,33 @@ function formatTimeLabel(dateObj) {
 function formatSlotRangeLabel(startMinute) {
   const endMinute = startMinute + SLOT_STEP_MINUTES;
   return `${formatTimeFromMinutes(startMinute)} - ${formatTimeFromMinutes(endMinute)}`;
+}
+
+function toLocalISOString(date) {
+  // Format: YYYY-MM-DDTHH:mm:ss (local time, no timezone)
+  // NOTE: Backend expects UTC time, so we keep local representation
+  // which will be interpreted correctly by Python as naive datetime
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+function parseBookingDateTime(datetimeStr) {
+  // Backend returns datetime in format "YYYY-MM-DD HH:MM:SS" (local time)
+  // Parse as-is without timezone conversion
+  if (!datetimeStr) return null;
+  
+  // Replace space with T for consistent parsing
+  const isoStr = datetimeStr.replace(' ', 'T');
+  
+  // Parse as local time (browser will use local timezone)
+  const localDate = new Date(isoStr);
+  
+  return localDate;
 }
 
 function showToast(msg) {
@@ -187,16 +216,16 @@ function normalizeBooking(raw) {
   
   if (firstItem?.start_time) {
     try {
-      start = new Date(firstItem.start_time);
-      if (isNaN(start.getTime())) start = null;
+      start = parseBookingDateTime(firstItem.start_time);
+      if (!start || isNaN(start.getTime())) start = null;
     } catch (e) {
       console.warn("Invalid start_time:", firstItem.start_time);
       start = null;
     }
   } else if (firstItem?.startTime) {
     try {
-      start = new Date(firstItem.startTime);
-      if (isNaN(start.getTime())) start = null;
+      start = parseBookingDateTime(firstItem.startTime);
+      if (!start || isNaN(start.getTime())) start = null;
     } catch (e) {
       console.warn("Invalid startTime:", firstItem.startTime);
       start = null;
@@ -205,16 +234,16 @@ function normalizeBooking(raw) {
 
   if (firstItem?.end_time) {
     try {
-      end = new Date(firstItem.end_time);
-      if (isNaN(end.getTime())) end = null;
+      end = parseBookingDateTime(firstItem.end_time);
+      if (!end || isNaN(end.getTime())) end = null;
     } catch (e) {
       console.warn("Invalid end_time:", firstItem.end_time);
       end = null;
     }
   } else if (firstItem?.endTime) {
     try {
-      end = new Date(firstItem.endTime);
-      if (isNaN(end.getTime())) end = null;
+      end = parseBookingDateTime(firstItem.endTime);
+      if (!end || isNaN(end.getTime())) end = null;
     } catch (e) {
       console.warn("Invalid endTime:", firstItem.endTime);
       end = null;
@@ -280,8 +309,8 @@ function setSelection(facilityId, dateStr) {
 function toggleSelectedSlot(courtId, startDate) {
   if (!startDate || Number.isNaN(startDate.getTime())) return;
   const end = new Date(startDate.getTime() + 60 * 60 * 1000);
-  const key = `${courtId}-${startDate.toISOString()}`;
-  const existingIndex = state.selectedSlots.findIndex((s) => `${s.courtId}-${s.start.toISOString()}` === key);
+  const key = `${courtId}-${toLocalISOString(startDate)}`;
+  const existingIndex = state.selectedSlots.findIndex((s) => `${s.courtId}-${toLocalISOString(s.start)}` === key);
 
   if (existingIndex >= 0) {
     state.selectedSlots.splice(existingIndex, 1);
@@ -295,7 +324,7 @@ function toggleSelectedSlot(courtId, startDate) {
   if (body) {
     body.querySelectorAll(".timeline-cell.active").forEach((c) => c.classList.remove("active"));
     state.selectedSlots.forEach((slot) => {
-      const cell = body.querySelector(`.timeline-cell[data-court="${slot.courtId}"][data-start="${slot.start.toISOString()}"]`);
+      const cell = body.querySelector(`.timeline-cell[data-court="${slot.courtId}"][data-start="${toLocalISOString(slot.start)}"]`);
       if (cell) cell.classList.add("active");
     });
   }
@@ -326,8 +355,8 @@ function summarizeSelectionPricing(slots) {
 
 function isSlotSelected(courtId, startDate) {
   if (!startDate) return false;
-  const key = `${courtId}-${startDate.toISOString()}`;
-  return state.selectedSlots.some((s) => `${s.courtId}-${s.start.toISOString()}` === key);
+  const key = `${courtId}-${toLocalISOString(startDate)}`;
+  return state.selectedSlots.some((s) => `${s.courtId}-${toLocalISOString(s.start)}` === key);
 }
 
 function updateSelectionBar() {
@@ -432,8 +461,8 @@ async function submitQuickCheckout() {
       facility_id: state.selectedFacilityId,
       items: state.selectedSlots.map((slot) => ({
         court_id: slot.courtId,
-        start_time: slot.start.toISOString(),
-        end_time: slot.end.toISOString(),
+        start_time: toLocalISOString(slot.start),
+        end_time: toLocalISOString(slot.end),
         price: getCourtHourlyRate(slot.courtId),
       })),
       customer_name: name,
@@ -463,6 +492,24 @@ async function submitQuickCheckout() {
 
     if (paymentResult.paymentStatus === "paid") {
       showToast("Thanh toán thành công! Booking đã được xác nhận.");
+      
+      // Send confirmation email
+      try {
+        const firstSlot = state.selectedSlots[0];
+        const courtName = getCourtName(firstSlot.courtId);
+        const facilityName = getFacilityName(state.selectedFacilityId);
+        const scheduledTime = `${firstSlot.start.toLocaleString('vi-VN')} - ${firstSlot.end.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}`;
+        
+        await window.api.notification.sendBookingConfirmed({
+          booking_id: paymentResult.bookingId || 0,
+          user_email: email,
+          scheduled_time: `${courtName} - ${facilityName}: ${scheduledTime}`,
+          court_name: courtName
+        });
+        console.log("[submitQuickCheckout] Confirmation email sent");
+      } catch (emailErr) {
+        console.error("[submitQuickCheckout] Email sending failed:", emailErr);
+      }
       
       await refreshBookings();
       
@@ -821,7 +868,15 @@ function renderBooking() {
   const slots = Array.from({ length: ((END_HOUR - START_HOUR) * 60) / SLOT_STEP_MINUTES }, (_, i) => START_HOUR * 60 + i * SLOT_STEP_MINUTES);
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
-  const activeDate = state.selectedDate || defaultDate;
+  
+  // Đảm bảo ngày đã chọn không phải Hết hạn
+  let activeDate = state.selectedDate || defaultDate;
+  if (activeDate < defaultDate) {
+    activeDate = defaultDate;
+    state.selectedDate = defaultDate;
+    localStorage.setItem("soa_booking_date", defaultDate);
+  }
+  
   const columnStyle = `style="grid-template-columns: repeat(${slots.length}, 140px);"`;
 
   const bookingHtml = `
@@ -829,44 +884,45 @@ function renderBooking() {
       <div class="booking-header-hero">
         <div class="hero-left">
           <p class="eyebrow">Đặt sân theo giờ</p>
-          <h1 class="page-hero">Đặt sân Badminton</h1>
+          <h1 class="page-hero">BSport</h1>
           <a class="guide-link" href="#">Xem giá, hướng dẫn</a>
         </div>
         <div class="hero-center">
-          <label class="date-label">Chọn ngày</label>
-          <div class="date-input-pill">
-            <input type="date" id="booking-date" value="${activeDate}" />
-          </div>
+          <label class="date-label">Chọn cơ sở</label>
+          <select id="facility-select" class="facility-dropdown">
+            ${
+              state.facilities.length
+                ? state.facilities
+                    .map(
+                      (f) => `
+            <option value="${f.facility_id || f.id}" ${
+                        f.facility_id === state.selectedFacilityId || f.id === state.selectedFacilityId ? "selected" : ""
+                      }>${f.name}</option>`
+                    )
+                    .join("")
+                : '<option value="">Chưa có cơ sở</option>'
+            }
+          </select>
         </div>
         <div class="hero-right">
-          <div class="hotline-card muted-card">Thông tin liên hệ sẽ cập nhật</div>
+          <label class="date-label">Chọn ngày</label>
+          <div class="date-input-pill">
+            <input type="date" id="booking-date" value="${activeDate}" min="${TODAY}" max="${TOMORROW}" />
+          </div>
         </div>
-      </div>
-
-      <div class="facility-strip">
-        ${
-          state.facilities.length
-            ? state.facilities
-                .map(
-                  (f) => `
-          <label class="facility-chip">
-            <input type="radio" name="facility-radio" value="${f.facility_id || f.id}" ${
-                    f.facility_id === state.selectedFacilityId || f.id === state.selectedFacilityId ? "checked" : ""
-                  } />
-            <span class="facility-bullet"></span>
-            <span class="facility-name">${f.name}</span>
-          </label>`
-                )
-                .join("")
-            : "<div class='muted'>Chưa có danh sách cơ sở</div>"
-        }
+        <div class="hero-logout">
+          <button class="btn-logout" onclick="window.location.href='../Login/login.html'">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+          </button>
+        </div>
       </div>
 
       <div class="booking-legend">
         <div class="legend-item"><span class="legend-box blank"></span>Trống</div>
-        <div class="legend-item"><span class="legend-box booked"></span>Đã đặt</div>
+        <div class="legend-item"><span class="legend-box pending"></span>Chờ xác nhận</div>
+        <div class="legend-item"><span class="legend-box booked"></span>Đã xác nhận</div>
         <div class="legend-item"><span class="legend-box active"></span>Đang chọn</div>
-        <div class="legend-item"><span class="legend-box pass"></span>Cần Pass</div>
+        <div class="legend-item"><span class="legend-box past"></span>Hết hạn</div>
       </div>
 
       <div class="schedule-panel">
@@ -900,11 +956,14 @@ function renderBooking() {
 
   const renderGrid = () => {
     const selectedDate = document.getElementById("booking-date")?.value || state.selectedDate;
+    console.log("[renderGrid] All bookings:", state.bookings.length);
+    console.log("[renderGrid] Selected date:", selectedDate);
     const filteredBookings = state.bookings.filter(
       (b) =>
         (!state.selectedFacilityId || !b.facilityId || b.facilityId === state.selectedFacilityId) &&
         (!selectedDate || (b.start && isSameDate(b.start, selectedDate)))
     );
+    console.log("[renderGrid] Filtered bookings:", filteredBookings.length, filteredBookings);
     const courts = state.courts.filter((c) => !state.selectedFacilityId || c.facilityId === state.selectedFacilityId);
     const slots = Array.from({ length: ((END_HOUR - START_HOUR) * 60) / SLOT_STEP_MINUTES }, (_, i) => START_HOUR * 60 + i * SLOT_STEP_MINUTES);
     const body = document.getElementById("timeline-body-grid");
@@ -930,11 +989,32 @@ function renderBooking() {
             const mm = m % 60;
             const start = new Date(selectedDate || new Date().toISOString().split("T")[0]);
             start.setHours(h, mm, 0, 0);
+            
+            // Kiểm tra nếu là slot Hết hạn
+            const now = new Date();
+            const isPast = start < now;
+            
             const booking = filteredBookings.find((b) => b.courtId === c.id && b.start && b.end && b.start <= start && b.end > start);
             let status = "blank";
-            if (booking) status = "booked";
-            if (isSlotSelected(c.id, start)) status = "active";
-            return `<div class="timeline-cell ${status}" data-court="${c.id}" data-start="${start.toISOString()}"></div>`;
+            if (isPast) {
+              status = "past"; // Slot Hết hạn
+            } else if (booking) {
+              const bookingStatus = booking.status || booking.uiStatus;
+              // CHỈ confirmed=đỏ, pending=vàng, cancelled/expired=KHÔNG hiển thị (blank)
+              if (bookingStatus === "confirmed") {
+                status = "booked"; // Màu đỏ - đã xác nhận
+              } else if (bookingStatus === "pending") {
+                status = "pending"; // Màu vàng - chờ xác nhận
+              } else if (["cancelled", "expired"].includes(bookingStatus)) {
+                status = "blank"; // Trắng - đã hủy/hết hạn
+              } else {
+                status = "blank"; // Mặc định trắng
+              }
+            } else if (isSlotSelected(c.id, start)) {
+              status = "active";
+            }
+            
+            return `<div class="timeline-cell ${status}" data-court="${c.id}" data-start="${toLocalISOString(start)}"></div>`;
           })
           .join("");
         return `<div class="timeline-row">
@@ -955,25 +1035,49 @@ function renderBooking() {
   };
 
   document.getElementById("booking-date")?.addEventListener("change", (e) => {
-    setSelection(state.selectedFacilityId, e.target.value);
+    const selectedDate = e.target.value;
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    
+    // Chỉ cho phép chọn hôm nay hoặc hôm sau
+    if (selectedDate < today || selectedDate > tomorrow) {
+      showToast("❌ Chỉ được đặt sân cho hôm nay hoặc ngày mai!");
+      e.target.value = today;
+      return;
+    }
+    
+    setSelection(state.selectedFacilityId, selectedDate);
     renderGrid();
     updateSelectionBar();
   });
 
-  document.querySelectorAll('input[name="facility-radio"]').forEach((radio) => {
-    radio.addEventListener("change", (e) => {
+  const facilitySelect = document.getElementById("facility-select");
+  if (facilitySelect) {
+    facilitySelect.addEventListener("change", (e) => {
       const facilityId = parseInt(e.target.value, 10);
       setSelection(facilityId, document.getElementById("booking-date")?.value || state.selectedDate);
       refreshBookings().then(() => renderBooking());
     });
-  });
+  }
 
   document.getElementById("timeline-body-grid")?.addEventListener("click", (e) => {
     const cell = e.target.closest(".timeline-cell");
     if (!cell) return;
+    
+    // Không cho click vào các ô đã đặt, pending hoặc Hết hạn
     if (cell.classList.contains("booked")) return;
+    if (cell.classList.contains("pending")) {
+      showToast("ℹ️ Booking này đang chờ xác nhận từ quản lý!");
+      return;
+    }
+    if (cell.classList.contains("past")) {
+      showToast("❌ Không thể đặt sân trong Hết hạn!");
+      return;
+    }
+    
     const courtId = parseInt(cell.dataset.court, 10);
     const start = new Date(cell.dataset.start);
+    
     toggleSelectedSlot(courtId, start);
     renderGrid();
   });
@@ -989,20 +1093,28 @@ function renderManager() {
 
   const managerHtml = `
     <div class="dashboard-shell">
-      <div class="hero-panel">
-        <div>
-          <p class="eyebrow">Quản lý</p>
-          <h2 class="hero-title">Điều phối cơ sở</h2>
+      <div class="booking-header-hero">
+        <div class="hero-left">
+          <p class="eyebrow">QUẢN LÝ</p>
+          <h1 class="page-hero">Điều phối</h1>
           <p class="muted">Quản lý sân, booking, và xem báo cáo doanh thu.</p>
         </div>
-        <div class="hero-selection">
-          <div class="muted">Cơ sở quản lý</div>
-          <select id="manager-facility-select" class="manager-facility-select">
+        <div class="hero-center">
+          <label class="date-label">Cơ sở quản lý</label>
+          <select id="manager-facility-select" class="facility-dropdown">
             <option value="">Đang tải...</option>
           </select>
-          <div class="muted" style="margin-top:8px;">Ngày hiện tại</div>
-          <div class="selection-line" id="manager-date-display">${activeDate}</div>
-          <input type="date" id="manager-date-picker" value="${activeDate}" style="margin-top:8px;" />
+        </div>
+        <div class="hero-right">
+          <label class="date-label">Ngày hiện tại</label>
+          <div class="date-input-pill">
+            <input type="date" id="manager-date-picker" value="${activeDate}" min="${TODAY}" />
+          </div>
+        </div>
+        <div class="hero-logout">
+          <button class="btn-logout" onclick="window.location.href='../Login/login.html'">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+          </button>
         </div>
       </div>
 
@@ -1077,6 +1189,15 @@ function setupManagerTabs() {
 
   document.getElementById("manager-date-picker")?.addEventListener("change", (e) => {
     const newDate = e.target.value;
+    const today = new Date().toISOString().split("T")[0];
+    
+    // Kiểm tra không cho chọn ngày Hết hạn
+    if (newDate < today) {
+      showToast("❌ Không được chọn ngày trong Hết hạn!");
+      e.target.value = today;
+      return;
+    }
+    
     setManagerSelection(state.managerFacilityId, newDate);
     refreshManagerView(newDate);
   });
@@ -1087,8 +1208,6 @@ function getManagerActiveDate() {
 }
 
 function updateManagerDateUI(dateStr) {
-  const display = document.getElementById("manager-date-display");
-  if (display) display.innerText = dateStr;
   const picker = document.getElementById("manager-date-picker");
   if (picker) picker.value = dateStr;
 }
@@ -1343,7 +1462,7 @@ async function loadManagerReport(preloadedBookings = null, preloadedCourts = nul
     const bookings = (bookingsData || []).map(normalizeBooking);
     const courts = (courtsData || []).map(mapCourt);
 
-    // Render usage stats (new feature)
+    // Render usage stats
     const usageStatsHtml = window.ManagerReportCharts?.renderUsageStats(bookings, courts) || '';
     
     // Render revenue table
@@ -1351,20 +1470,9 @@ async function loadManagerReport(preloadedBookings = null, preloadedCourts = nul
     const dateRange = `${formatDateVi(startDate)} - ${formatDateVi(today)}`;
     const reportHtml = window.ManagerReport.renderReportTable(reportData, dateRange);
     
-    // Render playtime charts (new feature - async!)
-    let chartsHtml = '';
-    if (window.ManagerReportCharts?.renderPlaytimeCharts) {
-      try {
-        chartsHtml = await window.ManagerReportCharts.renderPlaytimeCharts(courts);
-      } catch (chartErr) {
-        console.error("[loadManagerReport] Error rendering charts:", chartErr);
-        chartsHtml = `<div class="error-message">Lỗi load charts: ${chartErr.message}</div>`;
-      }
-    }
-    
     const reportContainer = document.getElementById("report-container");
     if (reportContainer) {
-      reportContainer.innerHTML = usageStatsHtml + reportHtml + chartsHtml;
+      reportContainer.innerHTML = usageStatsHtml + reportHtml;
     }
   } catch (err) {
     console.error("[loadManagerReport] Error:", err);
@@ -1504,19 +1612,36 @@ async function cancelBooking(id) {
 
 async function handlePaymentReturn() {
   try {
+    console.log("[handlePaymentReturn] Checking for payment params in URL...");
     const returnData = await window.PaymentHandler.handlePaymentReturn();
-    if (!returnData) return;
+    if (!returnData) {
+      console.log("[handlePaymentReturn] No payment params found");
+      return;
+    }
     console.log("[handlePaymentReturn] Result:", returnData);
 
     if (returnData.success) {
+      console.log("[handlePaymentReturn] Payment successful, reloading bookings...");
+      
       showToast(returnData.message || "Thanh toán thành công! Ô sân đã được cập nhật.");
+      
+      // Switch to booking view first
       if (currentView !== "booking") {
+        console.log("[handlePaymentReturn] Switching to booking view");
         changeView("booking");
-      } else {
-        window.renderBookingGrid?.();
       }
+      
+      // Force reload bookings data to get updated payment status
+      try {
+        await reloadBookingsForSelection({ forceRefresh: true });
+        console.log("[handlePaymentReturn] Bookings reloaded and grid refreshed");
+      } catch (loadErr) {
+        console.error("[handlePaymentReturn] Failed to reload bookings:", loadErr);
+      }
+      
       window.scrollTo(0, 0);
     } else {
+      console.log("[handlePaymentReturn] Payment failed:", returnData.message);
       showToast(returnData.message || "Thanh toán thất bại. Vui lòng thử lại.");
     }
   } catch (err) {
