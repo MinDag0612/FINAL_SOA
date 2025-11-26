@@ -36,6 +36,12 @@ const ManagerReport = (() => {
     });
 
     (bookings || []).forEach(booking => {
+      // Only count confirmed/completed bookings for revenue report
+      const status = booking.status || booking.uiStatus;
+      if (status === 'cancelled' || status === 'pending') {
+        return; // Skip cancelled and pending bookings
+      }
+
       const bookingStart = new Date(booking.start_time || booking.start);
       const bookingEnd = new Date(booking.end_time || booking.end);
 

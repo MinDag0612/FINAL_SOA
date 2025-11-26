@@ -1276,6 +1276,19 @@ async function refreshManagerView(dateOverride) {
         const tableHtml = window.ManagerBooking.renderBookingTable(bookings, courts);
         bookingsContainer.innerHTML = tableHtml;
         console.log("[refreshManagerView] Booking table HTML length:", tableHtml.length, "Container innerHTML length:", bookingsContainer.innerHTML.length);
+        
+        // Verify content is actually in DOM
+        setTimeout(() => {
+          const stillThere = document.getElementById("bookings-list");
+          if (stillThere) {
+            console.log("[refreshManagerView] VERIFY: bookings-list still exists, innerHTML length:", stillThere.innerHTML.length);
+            if (stillThere.innerHTML.length < 100) {
+              console.error("[refreshManagerView] WARNING: bookings-list innerHTML was cleared!");
+            }
+          } else {
+            console.error("[refreshManagerView] CRITICAL: bookings-list container was removed from DOM!");
+          }
+        }, 100);
       } catch (err) {
         console.error("[refreshManagerView] Error rendering booking table:", err);
         bookingsContainer.innerHTML = `<div class="error-message">Lỗi hiển thị bảng booking: ${err.message}</div>`;

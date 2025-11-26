@@ -223,6 +223,9 @@ const ManagerBooking = (() => {
       window.showToast("Booking tại chỗ tạo thành công!");
       resetWalkInForm();
       
+      // Small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       console.log("[submitWalkIn] Refreshing manager view...");
       if (typeof window.refreshManagerView === "function") {
         console.log("[submitWalkIn] Calling window.refreshManagerView");
