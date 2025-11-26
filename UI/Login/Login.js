@@ -45,22 +45,31 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   const email = document.getElementById("login-email").value;
   const password = document.getElementById("login-password").value;
 
+  if (!email || !password) {
+    setMessage(LOGIN_MESSAGE, "Vui lòng nhập email và mật khẩu", true);
+    return;
+  }
+
   try {
     const resp = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    if (!resp.ok) throw new Error(await resp.text());
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      throw new Error(errorText || `HTTP ${resp.status}`);
+    }
     const data = await resp.json();
-    if (!data?.token || !data?.user) throw new Error("Thông tin đăng nhập không hợp lệ");
-    saveAuth({ token: data.token, user: data.user });
+    if (!data?.token) throw new Error("Token không tìm thấy trong response");
+    const user = data?.user || { email, user_id: null };
+    saveAuth({ token: data.token, user });
     setMessage(LOGIN_MESSAGE, "Đăng nhập thành công!");
     setTimeout(() => {
       window.location.href = "../Homepage/homepage.html";
     }, 500);
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     setMessage(LOGIN_MESSAGE, err.message || "Đăng nhập thất bại", true);
   }
 });
@@ -73,20 +82,30 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
   const password = document.getElementById("register-password").value;
   const role = document.getElementById("register-role").value || "customer";
 
+  if (!fullname || !email || !password) {
+    setMessage(REGISTER_MESSAGE, "Vui lòng nhập đủ thông tin", true);
+    return;
+  }
+
   try {
     const resp = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fullname, email, password, role }),
     });
-    if (!resp.ok) throw new Error(await resp.text());
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      throw new Error(errorText || `HTTP ${resp.status}`);
+    }
     await resp.json();
     setMessage(REGISTER_MESSAGE, "Tạo tài khoản thành công! Vui lòng đăng nhập.");
     setTimeout(() => {
       container.classList.remove("active");
+      document.getElementById("register-form").reset();
+      document.getElementById("login-form").reset();
     }, 500);
   } catch (err) {
-    console.error(err);
+    console.error("Register error:", err);
     setMessage(REGISTER_MESSAGE, err.message || "Đăng ký thất bại", true);
   }
 });

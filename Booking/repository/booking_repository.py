@@ -11,12 +11,17 @@ class BookingRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_bookings(self, user_id: Optional[int] = None) -> List[Booking]:
+    def list_bookings(self, user_id: Optional[int] = None, facility_id: Optional[int] = None) -> List[Booking]:
         params = {}
-        where_clause = ""
-        if user_id:
-            where_clause = "WHERE user_id = :user_id"
+        conditions = []
+        if user_id is not None:
+            conditions.append("user_id = :user_id")
             params["user_id"] = user_id
+        if facility_id is not None:
+            conditions.append("facility_id = :facility_id")
+            params["facility_id"] = facility_id
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
         bookings_query = text(
             f"""
@@ -183,6 +188,28 @@ class BookingRepository:
         self.db.commit()
         return self.get_booking(booking_id)
 
+    def delete_booking(self, booking_id: int) -> bool:
+        self.db.execute(
+            text(
+                """
+                DELETE FROM booking_items
+                WHERE booking_id = :booking_id
+                """
+            ),
+            {"booking_id": booking_id},
+        )
+        result = self.db.execute(
+            text(
+                """
+                DELETE FROM bookings
+                WHERE booking_id = :booking_id
+                """
+            ),
+            {"booking_id": booking_id},
+        )
+        self.db.commit()
+        return result.rowcount > 0
+
     def has_conflict(self, court_id: int, start_time: datetime, end_time: datetime) -> bool:
         query = text(
             """
@@ -248,13 +275,12 @@ class BookingRepository:
                 FROM booking_items bi
                 JOIN bookings b ON bi.booking_id = b.booking_id
                 WHERE bi.court_id = :court_id
-                AND b.payment_status = 'paid'
-                ORDER BY bi.start_time;
-
+                  AND b.payment_status = 'paid'
+                ORDER BY bi.start_time
                 """
             )
             rows = self.db.execute(query, {"court_id": court_id}).mappings().all()
-            slots = [ 
+            slots = [
                 {
                     "item_id": row["item_id"],
                     "booking_id": row["booking_id"],
@@ -262,42 +288,10 @@ class BookingRepository:
                     "start_time": row["start_time"],
                     "end_time": row["end_time"],
                     "price": float(row["price"]),
-                    "payment_status": row["payment_status"]
+                    "payment_status": row["payment_status"],
                 }
                 for row in rows
             ]
             return slots
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-        
-    def get_bookings_by_facility(self, facility_id: int) -> List[dict]:
-        try:
-            query = text(
-                """
-                SELECT booking_id, user_id, facility_id, status, total_amount, payment_status,
-                       payment_method, payment_reference, hold_expires_at, paid_at, note
-                FROM bookings
-                WHERE facility_id = :facility_id
-                ORDER BY created_at DESC
-                """
-            )
-            rows = self.db.execute(query, {"facility_id": facility_id}).mappings().all()
-            bookings = [
-                {
-                    "booking_id": row["booking_id"],
-                    "user_id": row["user_id"],
-                    "facility_id": row["facility_id"],
-                    "status": row["status"],
-                    "total_amount": float(row["total_amount"]),
-                    "payment_status": row["payment_status"],
-                    "payment_method": row["payment_method"],
-                    "payment_reference": row["payment_reference"],
-                    "hold_expires_at": row["hold_expires_at"],
-                    "paid_at": row["paid_at"],
-                    "note": row["note"],
-                }
-                for row in rows
-            ]
-            return bookings
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

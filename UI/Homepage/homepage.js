@@ -3,23 +3,21 @@ const pageTitle = document.getElementById("page-title");
 
 const START_HOUR = 0;
 const END_HOUR = 24;
-const DEFAULT_VIEW_HOUR = 8; // giờ mặc định khi load vào
-const HOURLY_RATE = 50000; // giá mỗi ô (1 giờ)
-const DEFAULT_PAYMENT_METHOD = localStorage.getItem("soa_payment_method") || "cash"; // sepay|vnpay|cash
-const PAYMENT_RETURN_URL =
-  localStorage.getItem("soa_return_url") || `${window.location.origin}/ui/Homepage/homepage.html`;
+const DEFAULT_VIEW_HOUR = 8;
+const HOURLY_RATE = 50000;
 const SAVED_FACILITY = parseInt(localStorage.getItem("soa_facility_id") || "", 10) || null;
 const SAVED_DATE = localStorage.getItem("soa_booking_date") || null;
 const SHOULD_PROMPT_SELECTION = !SAVED_FACILITY;
 const SLOT_STEP_MINUTES = 60;
 
 let currentView = "dashboard";
-let currentBookingToProcess = null;
 let state = {
   courts: [],
   bookings: [],
-  transactions: [],
   facilities: [],
+  managerFacilities: [],
+  managerFacilityId: SAVED_FACILITY,
+  managerDate: SAVED_DATE,
   selectedFacilityId: SAVED_FACILITY,
   selectedDate: SAVED_DATE,
   selectedSlots: [],
@@ -33,7 +31,6 @@ let state = {
   },
 };
 
-// --- HELPER ---
 function formatCurrency(amount = 0) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 }
@@ -68,6 +65,7 @@ function showToast(msg) {
   toast.classList.remove("hidden");
   setTimeout(() => toast.classList.add("hidden"), 3000);
 }
+window.showToast = showToast;
 
 function showConfirmDialog(message, onConfirm) {
   const existing = document.getElementById("confirm-overlay");
@@ -180,8 +178,44 @@ function isSameDate(dateA, dateStrB) {
 
 function normalizeBooking(raw) {
   const firstItem = raw.items && raw.items.length ? raw.items[0] : null;
-  const start = firstItem?.start_time ? new Date(firstItem.start_time) : firstItem?.startTime ? new Date(firstItem.startTime) : null;
-  const end = firstItem?.end_time ? new Date(firstItem.end_time) : firstItem?.endTime ? new Date(firstItem.endTime) : null;
+  let start = null, end = null;
+  
+  if (firstItem?.start_time) {
+    try {
+      start = new Date(firstItem.start_time);
+      if (isNaN(start.getTime())) start = null;
+    } catch (e) {
+      console.warn("Invalid start_time:", firstItem.start_time);
+      start = null;
+    }
+  } else if (firstItem?.startTime) {
+    try {
+      start = new Date(firstItem.startTime);
+      if (isNaN(start.getTime())) start = null;
+    } catch (e) {
+      console.warn("Invalid startTime:", firstItem.startTime);
+      start = null;
+    }
+  }
+
+  if (firstItem?.end_time) {
+    try {
+      end = new Date(firstItem.end_time);
+      if (isNaN(end.getTime())) end = null;
+    } catch (e) {
+      console.warn("Invalid end_time:", firstItem.end_time);
+      end = null;
+    }
+  } else if (firstItem?.endTime) {
+    try {
+      end = new Date(firstItem.endTime);
+      if (isNaN(end.getTime())) end = null;
+    } catch (e) {
+      console.warn("Invalid endTime:", firstItem.endTime);
+      end = null;
+    }
+  }
+
   const duration = start && end ? (end - start) / (1000 * 60 * 60) : null;
   const itemTotal = Array.isArray(raw.items)
     ? raw.items.reduce((sum, it) => sum + (it.total_price || it.totalPrice || it.price || 0), 0)
@@ -205,15 +239,6 @@ function normalizeBooking(raw) {
     total: raw.total_amount || itemTotal || (firstItem?.price ?? (duration || 1) * (inferredRate || HOURLY_RATE)),
     raw,
   };
-}
-
-function extractBookingFromCreateResponse(res) {
-  if (!res) return null;
-  // API shape: {status, data: {booking, invoice, payment_intent, ...}}
-  if (res.booking) return res.booking;
-  if (res.data?.booking) return res.data.booking;
-  if (res.data?.data?.booking) return res.data.data.booking;
-  return null;
 }
 
 function getCourtName(courtId) {
@@ -263,7 +288,6 @@ function toggleSelectedSlot(courtId, startDate) {
   updateSelectionBar();
   const body = document.getElementById("timeline-body-grid");
   if (body) {
-    // đồng bộ trạng thái highlight cho tất cả ô đã chọn
     body.querySelectorAll(".timeline-cell.active").forEach((c) => c.classList.remove("active"));
     state.selectedSlots.forEach((slot) => {
       const cell = body.querySelector(`.timeline-cell[data-court="${slot.courtId}"][data-start="${slot.start.toISOString()}"]`);
@@ -365,7 +389,6 @@ function openQuickCheckout() {
     }
   });
 
-  // Prefill thông tin khách
   const nameInput = document.getElementById("qc-name");
   const phoneInput = document.getElementById("qc-phone");
   const emailInput = document.getElementById("qc-email");
@@ -393,43 +416,74 @@ async function submitQuickCheckout() {
     openSelectionModal();
     return;
   }
-  const payload = {
-    facility_id: state.selectedFacilityId,
-    items: state.selectedSlots.map((slot) => ({
-      court_id: slot.courtId,
-      start_time: slot.start.toISOString(),
-      end_time: slot.end.toISOString(),
-      price: getCourtHourlyRate(slot.courtId),
-    })),
-    payment_method: DEFAULT_PAYMENT_METHOD,
-    note: `Khách: ${name} | SDT: ${phone} | Email: ${email} | Coupon: ${coupon || "Không có"}`,
-  };
+
+  const submitBtn = document.querySelector(".btn-pay-cta");
+  const originalText = submitBtn.innerText;
+  submitBtn.disabled = true;
+  submitBtn.innerText = "Đang xử lý...";
 
   try {
-    const created = await window.api.booking.create(payload);
-    const createdBooking = extractBookingFromCreateResponse(created);
-    let bookingToPay = null;
-    if (createdBooking) {
-      bookingToPay = normalizeBooking(createdBooking);
-      bookingToPay.raw = createdBooking;
-    }
-    if (!bookingToPay && createdBooking?.booking_id) {
-      bookingToPay = state.bookings.find((b) => b.id === createdBooking.booking_id);
-    }
-    if (bookingToPay && bookingToPay.raw?.payment_reference) {
-      currentBookingToProcess = bookingToPay;
-      closeModal("quickCheckoutModal");
-      processPayment(); // chuyển thẳng sang cổng thanh toán
-      refreshBookings().catch((err) => console.warn("Refresh bookings after pay failed", err));
+    const bookingData = {
+      facility_id: state.selectedFacilityId,
+      items: state.selectedSlots.map((slot) => ({
+        court_id: slot.courtId,
+        start_time: slot.start.toISOString(),
+        end_time: slot.end.toISOString(),
+        price: getCourtHourlyRate(slot.courtId),
+      })),
+      customer_name: name,
+      customer_phone: phone,
+      customer_email: email,
+      coupon: coupon || null,
+    };
+
+    const paymentResult = await window.PaymentHandler.processPayment(bookingData, state.userProfile);
+
+    if (!paymentResult.success) {
+      alert("Lỗi thanh toán: " + paymentResult.message);
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
       return;
     }
-    await refreshBookings();
-    closeModal("quickCheckoutModal");
-    changeView(currentView);
-    showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
+
+    console.log("[submitQuickCheckout] Payment result:", paymentResult);
+
+    if (paymentResult.redirectUrl) {
+      showToast("Đang chuyển hướng đến trang thanh toán...");
+      setTimeout(() => {
+        window.location.href = paymentResult.redirectUrl;
+      }, 1500);
+      return;
+    }
+
+    if (paymentResult.paymentStatus === "paid") {
+      showToast("Thanh toán thành công! Booking đã được xác nhận.");
+      
+      await refreshBookings();
+      
+      closeModal("quickCheckoutModal");
+      changeView(currentView);
+      state.selectedSlots = [];
+      updateSelectionBar();
+      
+      document.getElementById("qc-name").value = "";
+      document.getElementById("qc-phone").value = "";
+      document.getElementById("qc-email").value = "";
+      document.getElementById("qc-coupon").value = "";
+    } else {
+      showToast("Booking tạo thành công, đang xử lý thanh toán...");
+      await refreshBookings();
+      closeModal("quickCheckoutModal");
+      changeView(currentView);
+      state.selectedSlots = [];
+      updateSelectionBar();
+    }
   } catch (err) {
-    console.error(err);
+    console.error("[submitQuickCheckout] Error:", err);
     alert("Không đặt được sân: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerText = originalText;
   }
 }
 
@@ -462,7 +516,6 @@ function confirmSelection() {
   refreshBookings().then(() => changeView(currentView));
 }
 
-// --- DATA LOADERS ---
 async function refreshCourts() {
   try {
     state.courts = (await window.api.court.list()).map(mapCourt);
@@ -481,32 +534,30 @@ async function refreshFacilities() {
   }
 }
 
-async function refreshBookings() {
+async function refreshBookings(options = {}) {
+  const { forceRefresh = false } = options;
   try {
-    const data = await window.api.booking.list();
+    const data = await window.api.booking.list({}, { forceRefresh });
     state.bookings = data.map(normalizeBooking);
   } catch (err) {
     console.error(err);
     showToast("Không tải được lịch đặt");
   }
 }
+window.refreshBookings = refreshBookings;
 
-async function refreshTransactions() {
-  if (!state.userProfile.id) return;
-  try {
-    const data = await window.api.billing.history(state.userProfile.id, 10);
-    state.transactions = data.map((inv) => ({
-      id: inv.invoice_id,
-      amount: inv.amount,
-      status: inv.status,
-      content: `Hóa đơn đặt sân #${inv.booking_id}`,
-      time: inv.created_at || "",
-      type: inv.status === "paid" ? "minus" : "pending",
-    }));
-  } catch (err) {
-    console.error(err);
+async function reloadBookingsForSelection(options = {}) {
+  const { forceRefresh = false } = options;
+  await refreshBookings({ forceRefresh });
+  if (currentView === "booking") {
+    if (typeof window.renderBookingGrid === "function") {
+      window.renderBookingGrid();
+    } else {
+      renderBooking();
+    }
   }
 }
+window.reloadBookingsForSelection = reloadBookingsForSelection;
 
 async function bootstrapCustomerView() {
   const auth = getAuthOrRedirect();
@@ -517,7 +568,7 @@ async function bootstrapCustomerView() {
     adminNav.style.display = "none";
   }
   setAvatarInitials(state.userProfile.name);
-  await Promise.all([refreshFacilities(), refreshCourts(), refreshBookings(), refreshTransactions()]);
+  await Promise.all([refreshFacilities(), refreshCourts(), refreshBookings()]);
   if (!state.selectedFacilityId && state.facilities.length) {
     setSelection(state.facilities[0].facility_id || state.facilities[0].id, state.selectedDate || new Date().toISOString().split("T")[0]);
   }
@@ -531,31 +582,6 @@ async function bootstrapCustomerView() {
   }
 }
 
-async function handlePaymentReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const status = params.get("status");
-  const invoiceId = params.get("invoice_id");
-  if (!status && !invoiceId) return;
-  try {
-    await refreshBookings();
-    await refreshTransactions();
-    if (status === "success") {
-      showToast(`Thanh toán thành công (HĐ #${invoiceId || "?"}). Đã cập nhật lịch đặt.`);
-    } else {
-      showToast(`Thanh toán thất bại hoặc bị hủy (HĐ #${invoiceId || "?"}).`);
-    }
-  } catch (err) {
-    console.error("Handle payment return failed", err);
-  } finally {
-    params.delete("status");
-    params.delete("invoice_id");
-    const clean = params.toString();
-    const newUrl = clean ? `${window.location.pathname}?${clean}` : window.location.pathname;
-    window.history.replaceState({}, document.title, newUrl);
-  }
-}
-
-// --- VIEW SWITCHER ---
 function changeView(viewName) {
   currentView = viewName;
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.remove("active"));
@@ -582,7 +608,6 @@ function changeView(viewName) {
   }
 }
 
-// --- RENDER DASHBOARD ---
 function renderDashboard() {
   const dashboardHtml = `
     <div class="dashboard-shell">
@@ -705,11 +730,6 @@ function renderDashboard() {
             <div class="court-card-price">${formatCurrency(c.booking.total)}</div>
             <div class="court-card-actions">
               <button class="btn-outline" onclick="openCheckoutModal(${c.booking.id})">Chi tiết</button>
-              ${
-                c.booking.uiStatus === "booked"
-                  ? `<button class="btn-primary" onclick="openCheckoutModal(${c.booking.id})">Thu tiền</button>`
-                  : `<button class="btn-primary ghost" onclick="openCheckoutModal(${c.booking.id})">Xem</button>`
-              }
             </div>`;
         } else {
           content = `
@@ -749,29 +769,6 @@ function renderDashboard() {
   renderCourtCards();
 }
 
-function renderTransactions() {
-  const list = document.getElementById("transaction-list");
-  if (!list) return;
-
-  list.innerHTML = state.transactions
-    .map((gd) => {
-      const amountClass = gd.type === "plus" ? "amount-plus" : "amount-minus";
-      const amountSign = gd.type === "plus" ? "+" : "-";
-      const statusClass = gd.status === "paid" ? "status-success" : "status-pending";
-
-      return `
-            <tr>
-                <td>#${gd.id}</td><td>${gd.content}</td>
-                <td style="color: #6b7280; font-size: 13px;">${gd.time || ""}</td>
-                <td class="${amountClass}">${amountSign}${formatCurrency(gd.amount)}</td>
-                <td><span class="${statusClass}">${gd.status}</span></td>
-            </tr>
-        `;
-    })
-    .join("");
-}
-
-// --- PROFILE ---
 function renderProfile() {
   const profileHtml = `
         <div class="profile-grid">
@@ -791,22 +788,11 @@ function renderProfile() {
         </div>
 
         <div class="history-section">
-            <h3>Lịch sử giao dịch</h3>
-            <div class="table-container">
-                <table class="custom-table">
-                    <thead><tr><th>Mã HĐ</th>
-                    <th>Nội dung</th>
-                    <th>Thời gian</th>
-                    <th>Số tiền</th>
-                    <th>Trạng thái</th>
-                    </tr></thead>
-                    <tbody id="transaction-list"></tbody>
-                </table>
-            </div>
+            <h3>Lịch sử thanh toán</h3>
+            <p style="color:#94a3b8;margin-top:8px;">Tính năng thanh toán trực tuyến hiện đã được vô hiệu hóa.</p>
         </div>
     `;
   dynamicContent.innerHTML = profileHtml;
-  renderTransactions();
 }
 
 function openEditModal() {
@@ -825,7 +811,6 @@ function saveProfile() {
   showToast("Cập nhật hồ sơ thành công!");
 }
 
-// --- BOOKING VIEW ---
 function renderBooking() {
   let hasAutoScrolled = false;
   const slots = Array.from({ length: ((END_HOUR - START_HOUR) * 60) / SLOT_STEP_MINUTES }, (_, i) => START_HOUR * 60 + i * SLOT_STEP_MINUTES);
@@ -985,106 +970,300 @@ function renderBooking() {
     const courtId = parseInt(cell.dataset.court, 10);
     const start = new Date(cell.dataset.start);
     toggleSelectedSlot(courtId, start);
-    renderGrid(); // đảm bảo repaint toàn bộ lưới với các ô đang chọn
+    renderGrid();
   });
 
   renderGrid();
   updateSelectionBar();
+  window.renderBookingGrid = renderGrid;
 }
 
-// --- MANAGER VIEW ---
 function renderManager() {
   const today = new Date();
   const activeDate = state.selectedDate || today.toISOString().split("T")[0];
-  const selectedBookings = state.bookings.filter(
-    (b) =>
-      (!state.selectedFacilityId || !b.facilityId || b.facilityId === state.selectedFacilityId) &&
-      (!activeDate || (b.start && isSameDate(b.start, activeDate)))
-  );
-  const stats = selectedBookings.reduce(
-    (acc, b) => {
-      acc.total += 1;
-      acc[b.uiStatus] = (acc[b.uiStatus] || 0) + 1;
-      return acc;
-    },
-    { total: 0, active: 0, booked: 0, completed: 0, cancelled: 0 }
-  );
 
   const managerHtml = `
     <div class="dashboard-shell">
       <div class="hero-panel">
         <div>
           <p class="eyebrow">Quản lý</p>
-          <h2 class="hero-title">Tổng quan cơ sở</h2>
-          <p class="muted">Theo dõi lịch đặt theo ngày và trạng thái.</p>
+          <h2 class="hero-title">Điều phối cơ sở</h2>
+          <p class="muted">Quản lý sân, booking, và xem báo cáo doanh thu.</p>
         </div>
         <div class="hero-selection">
-          <div class="muted">Cơ sở & ngày</div>
-          <div class="selection-line">${getFacilityName(state.selectedFacilityId)} · ${activeDate}</div>
-          <button class="btn-outline" onclick="openSelectionModal()">Đổi lựa chọn</button>
+          <div class="muted">Cơ sở quản lý</div>
+          <select id="manager-facility-select" class="manager-facility-select">
+            <option value="">Đang tải...</option>
+          </select>
+          <div class="muted" style="margin-top:8px;">Ngày hiện tại</div>
+          <div class="selection-line" id="manager-date-display">${activeDate}</div>
+          <input type="date" id="manager-date-picker" value="${activeDate}" style="margin-top:8px;" />
         </div>
       </div>
 
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-icon soft"><i class="fa-solid fa-layer-group"></i></div>
-          <div><div class="stat-label">Tổng phiên</div><div class="stat-value">${stats.total}</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon success"><i class="fa-solid fa-circle-check"></i></div>
-          <div><div class="stat-label">Đã xác nhận</div><div class="stat-value">${stats.active}</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon warning"><i class="fa-regular fa-credit-card"></i></div>
-          <div><div class="stat-label">Chờ thanh toán</div><div class="stat-value">${stats.booked}</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon info"><i class="fa-solid fa-flag-checkered"></i></div>
-          <div><div class="stat-label">Hoàn tất</div><div class="stat-value">${stats.completed}</div></div>
-        </div>
+      <!-- Tab Navigation -->
+      <div class="tab-navigation" id="manager-tabs">
+        <button class="tab-button active" data-tab="courts">
+          <i class="fa-solid fa-map-pin"></i> Danh Sách Sân
+        </button>
+        <button class="tab-button" data-tab="bookings">
+          <i class="fa-solid fa-calendar-check"></i> Quản Lý Booking
+        </button>
+        <button class="tab-button" data-tab="reports">
+          <i class="fa-solid fa-chart-line"></i> Báo Cáo
+        </button>
       </div>
 
-      <div class="card">
-        <div class="card-header-simple" style="margin-bottom:10px;">
-          <div>
-            <h3>Lịch đặt trong ngày</h3>
-            <p class="muted">Lọc theo cơ sở đã chọn</p>
-          </div>
-          <button class="btn-outline" onclick="changeView('booking')">Mở bảng thời gian</button>
+      <!-- Tab Content -->
+      <div class="tab-content">
+        <!-- Courts Tab -->
+        <div id="tab-courts" class="tab-pane active">
+          <div id="courts-stats"></div>
+          <div id="courts-list"></div>
         </div>
-        <div class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>ID</th><th>Sân</th><th>Giờ</th><th>Khách</th><th>Trạng thái</th><th>Tổng</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                selectedBookings.length === 0
-                  ? `<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Chưa có lịch</td></tr>`
-                  : selectedBookings
-                      .map(
-                        (b) => `
-                <tr>
-                  <td>#${b.id}</td>
-                  <td>${getCourtName(b.courtId)}</td>
-                  <td>${b.start ? `${b.start.getHours()}:${b.start.getMinutes().toString().padStart(2, "0")}` : "--"}</td>
-                  <td>${b.customer}</td>
-                  <td><span class="badge modern" style="background:${getStatusStyle(b.uiStatus).bg};color:${getStatusStyle(b.uiStatus).text};border:1px solid ${getStatusStyle(b.uiStatus).border};">${getStatusStyle(b.uiStatus).label}</span></td>
-                  <td>${formatCurrency(b.total)}</td>
-                  <td><button class="btn-outline" onclick="openCheckoutModal(${b.id})">Xem</button></td>
-                </tr>`
-                      )
-                      .join("")
-              }
-            </tbody>
-          </table>
+
+        <!-- Bookings Tab -->
+        <div id="tab-bookings" class="tab-pane">
+          <div id="bookings-header"></div>
+          <div id="bookings-walkin-form"></div>
+          <div id="bookings-list"></div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="tab-reports" class="tab-pane">
+          <div id="reports-filter"></div>
+          <div id="report-container"></div>
         </div>
       </div>
     </div>
   `;
+
   dynamicContent.innerHTML = managerHtml;
+
+  setupManagerTabs();
+
+  initManagerContext();
+}
+
+function setupManagerTabs() {
+  const tabButtons = document.querySelectorAll("#manager-tabs .tab-button");
+  const tabPanes = document.querySelectorAll(".tab-pane");
+
+  tabButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      const tabName = button.getAttribute("data-tab");
+
+      tabButtons.forEach(b => b.classList.remove("active"));
+      tabPanes.forEach(p => p.classList.remove("active"));
+
+      button.classList.add("active");
+      document.getElementById(`tab-${tabName}`)?.classList.add("active");
+    });
+  });
+
+  document.getElementById("manager-date-picker")?.addEventListener("change", (e) => {
+    const newDate = e.target.value;
+    setManagerSelection(state.managerFacilityId, newDate);
+    refreshManagerView(newDate);
+  });
+}
+
+function getManagerActiveDate() {
+  return state.managerDate || state.selectedDate || new Date().toISOString().split("T")[0];
+}
+
+function updateManagerDateUI(dateStr) {
+  const display = document.getElementById("manager-date-display");
+  if (display) display.innerText = dateStr;
+  const picker = document.getElementById("manager-date-picker");
+  if (picker) picker.value = dateStr;
+}
+
+function setManagerSelection(facilityId, dateStr) {
+  const nextDate = dateStr || getManagerActiveDate();
+  if (facilityId) {
+    state.managerFacilityId = facilityId;
+  }
+  if (nextDate) {
+    state.managerDate = nextDate;
+  }
+  if (state.managerFacilityId && nextDate) {
+    setSelection(state.managerFacilityId, nextDate);
+  }
+  updateManagerDateUI(nextDate);
+}
+
+function renderManagerFacilityOptions() {
+  const select = document.getElementById("manager-facility-select");
+  if (!select) return;
+  if (!state.managerFacilities.length) {
+    select.innerHTML = `<option value="">Không có cơ sở</option>`;
+    select.disabled = true;
+    return;
+  }
+  select.innerHTML = state.managerFacilities
+    .map(
+      (facility) => `<option value="${facility.facility_id}">${facility.name || `Cơ sở #${facility.facility_id}`}</option>`
+    )
+    .join("");
+  select.value = state.managerFacilityId || state.managerFacilities[0].facility_id;
+  select.disabled = false;
+}
+
+function showManagerLoadError(message) {
+  const errorHtml = `<div class="error-message">${message}</div>`;
+  const statsContainer = document.getElementById("courts-stats");
+  if (statsContainer) statsContainer.innerHTML = "";
+  const courtsContainer = document.getElementById("courts-list");
+  if (courtsContainer) courtsContainer.innerHTML = errorHtml;
+  const bookingsContainer = document.getElementById("bookings-list");
+  if (bookingsContainer) bookingsContainer.innerHTML = errorHtml;
+  const headerContainer = document.getElementById("bookings-header");
+  if (headerContainer) headerContainer.innerHTML = "";
+  const reportContainer = document.getElementById("report-container");
+  if (reportContainer) reportContainer.innerHTML = errorHtml;
+  const filterContainer = document.getElementById("reports-filter");
+  if (filterContainer) filterContainer.innerHTML = "";
+}
+
+async function initManagerContext() {
+  try {
+    const rawFacilities = await window.api.facility.managerList();
+    state.managerFacilities = (rawFacilities || [])
+      .map((facility) => {
+        const id = Number(facility.facility_id || facility.id || facility.facilityId);
+        return {
+          facility_id: Number.isFinite(id) ? id : null,
+          name: facility.name || facility.title || `Cơ sở #${facility.facility_id || facility.id || id || "?"}`,
+        };
+      })
+      .filter((facility) => facility.facility_id);
+
+    if (!state.managerFacilities.length) {
+      showManagerLoadError("Bạn chưa được gán cơ sở nào.");
+      return;
+    }
+    if (!state.managerFacilityId) {
+      state.managerFacilityId = state.managerFacilities[0].facility_id;
+    }
+    if (!state.managerDate) {
+      state.managerDate = state.selectedDate || new Date().toISOString().split("T")[0];
+    }
+
+    renderManagerFacilityOptions();
+
+    const facilitySelect = document.getElementById("manager-facility-select");
+    if (facilitySelect) {
+      facilitySelect.onchange = (event) => {
+        const nextId = parseInt(event.target.value, 10);
+        if (Number.isNaN(nextId)) return;
+        setManagerSelection(nextId, state.managerDate);
+        refreshManagerView();
+      };
+    }
+
+    setManagerSelection(state.managerFacilityId, state.managerDate);
+    await refreshManagerView();
+  } catch (err) {
+    console.error("[initManagerContext] Error:", err);
+    showManagerLoadError(`Không tải được cơ sở: ${err.message}`);
+  }
+}
+
+async function refreshManagerView(dateOverride) {
+  const facilityId = state.managerFacilityId;
+  if (!facilityId) {
+    showManagerLoadError("Vui lòng chọn cơ sở để xem dữ liệu.");
+    return { bookings: [], courts: [] };
+  }
+
+  const dateStr = dateOverride || getManagerActiveDate();
+  setManagerSelection(facilityId, dateStr);
+
+  try {
+    const [courtsData, bookingsData] = await Promise.all([
+      window.api.court.listByFacility(facilityId),
+      window.api.booking.managerList(facilityId, dateStr),
+    ]);
+    const courts = (courtsData || []).map(mapCourt);
+    const bookings = (bookingsData || []).map(normalizeBooking);
+
+    const statsHtml = window.ManagerCourts.renderCourtsStats(courts, bookings);
+    const statsContainer = document.getElementById("courts-stats");
+    if (statsContainer) statsContainer.innerHTML = statsHtml;
+
+    const courtsContainer = document.getElementById("courts-list");
+    if (courtsContainer) {
+      courtsContainer.innerHTML = window.ManagerCourts.renderCourtsSection(courts, bookings, dateStr);
+    }
+
+    const headerContainer = document.getElementById("bookings-header");
+    if (headerContainer) {
+      headerContainer.innerHTML = `
+        <div class="card" style="margin-bottom: 20px;">
+          <h4>Booking hôm: ${formatDateVi(new Date(dateStr))}</h4>
+          <p class="muted">Tổng: ${bookings.length} booking</p>
+        </div>
+      `;
+    }
+
+    const walkinContainer = document.getElementById("bookings-walkin-form");
+    if (walkinContainer) walkinContainer.innerHTML = window.ManagerBooking.renderWalkInForm(courts);
+
+    const bookingsContainer = document.getElementById("bookings-list");
+    if (bookingsContainer) {
+      bookingsContainer.innerHTML = window.ManagerBooking.renderBookingTable(bookings, courts);
+    }
+
+    window.refreshManagerBookings = () => refreshManagerView();
+    window.refreshManagerView = refreshManagerView;
+
+    await loadManagerReport(bookings, courts);
+
+    return { bookings, courts };
+  } catch (err) {
+    console.error("[refreshManagerView] Error:", err);
+    showManagerLoadError(`Không tải được dữ liệu quản lý: ${err.message}`);
+    return { bookings: [], courts: [] };
+  }
+}
+
+async function loadManagerReport(preloadedBookings = null, preloadedCourts = null) {
+  const facilityId = state.managerFacilityId;
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 7);
+  const startDateStr = startDate.toISOString().split("T")[0];
+  const endDateStr = today.toISOString().split("T")[0];
+
+  const filterContainer = document.getElementById("reports-filter");
+  if (filterContainer) {
+    filterContainer.innerHTML = window.ManagerReport.renderDateRangeFilter(startDateStr, endDateStr);
+  }
+
+  if (!facilityId) {
+    showManagerLoadError("Vui lòng chọn cơ sở để xem báo cáo.");
+    return;
+  }
+
+  try {
+    const bookingsData = preloadedBookings || (await window.api.booking.managerList(facilityId));
+    const courtsData = preloadedCourts || (await window.api.court.listByFacility(facilityId));
+    const bookings = (bookingsData || []).map(normalizeBooking);
+    const courts = (courtsData || []).map(mapCourt);
+
+    const reportData = window.ManagerReport.calculateRevenueByCourtId(bookings, courts, startDateStr, endDateStr);
+    const dateRange = `${formatDateVi(startDate)} - ${formatDateVi(today)}`;
+    const reportHtml = window.ManagerReport.renderReportTable(reportData, dateRange);
+    const reportContainer = document.getElementById("report-container");
+    if (reportContainer) reportContainer.innerHTML = reportHtml;
+  } catch (err) {
+    console.error("[loadManagerReport] Error:", err);
+    const reportContainer = document.getElementById("report-container");
+    if (reportContainer) {
+      reportContainer.innerHTML = `<div class="error-message">Lỗi load report: ${err.message}</div>`;
+    }
+  }
 }
 
 async function confirmBooking() {
@@ -1140,33 +1319,17 @@ async function confirmBooking() {
               price: duration * getCourtHourlyRate(courtId),
             },
           ],
-    payment_method: DEFAULT_PAYMENT_METHOD,
     note: `Khách: ${name}`,
   };
 
   try {
-    const created = await window.api.booking.create(payload);
-    // Sau khi tạo xong thì tự chuyển sang thanh toán nếu có invoice
-    const createdBooking = extractBookingFromCreateResponse(created);
-    let bookingToPay = null;
-    if (createdBooking) {
-      bookingToPay = normalizeBooking(createdBooking);
-      bookingToPay.raw = createdBooking;
-    }
-    if (!bookingToPay && createdBooking?.booking_id) {
-      bookingToPay = state.bookings.find((b) => b.id === createdBooking.booking_id);
-    }
-    if (bookingToPay && bookingToPay.raw?.payment_reference) {
-      currentBookingToProcess = bookingToPay;
-      closeModal("bookingModal");
-      processPayment(); // chuyển thẳng sang cổng thanh toán
-      refreshBookings().catch((err) => console.warn("Refresh bookings after pay failed", err));
-      return;
-    }
+    await window.api.booking.create(payload);
     await refreshBookings();
     closeModal("bookingModal");
     changeView(currentView);
-    showToast("Không tìm thấy hóa đơn để thanh toán tự động.");
+    state.selectedSlots = [];
+    updateSelectionBar();
+    showToast("Đã tạo lịch đặt sân thành công.");
   } catch (err) {
     console.error(err);
     alert("Không đặt được sân: " + err.message);
@@ -1183,15 +1346,12 @@ function populateHourOptions(selectEl, defaultHour = null) {
 }
 
 function openBookingModal(courtId = null, startTime = null) {
-  // Modal cũ không còn dùng
   return;
 }
 
-// --- BOOKING DETAIL / ACTION ---
 function openCheckoutModal(bookingId) {
   const booking = state.bookings.find((b) => b.id === bookingId);
   if (!booking) return;
-  currentBookingToProcess = booking;
   document.getElementById("c-customer").innerText = booking.customer;
   document.getElementById("c-court-name").innerText = getCourtName(booking.courtId);
   document.getElementById("c-time-detail").innerText = booking.start
@@ -1210,9 +1370,6 @@ function openCheckoutModal(bookingId) {
   const actionDiv = document.getElementById("action-buttons");
   actionDiv.innerHTML = "";
   if (["booked", "active"].includes(booking.uiStatus)) {
-    if (booking.raw?.payment_reference) {
-      actionDiv.innerHTML += `<button class="btn-pay" onclick="processPayment(${booking.id})">Thanh toán</button>`;
-    }
     actionDiv.innerHTML += `<button class="btn-cancel" onclick="cancelBooking(${booking.id})">Hủy đặt</button>`;
   } else {
     actionDiv.innerHTML += `<div style="color:#6b7280;">Không có hành động khả dụng</div>`;
@@ -1236,87 +1393,29 @@ async function cancelBooking(id) {
   });
 }
 
-function processPayment() {
-  if (!currentBookingToProcess) return;
-  const invoiceId = parseInt(currentBookingToProcess.raw?.payment_reference || "", 10);
-  if (!invoiceId || Number.isNaN(invoiceId)) {
-    alert("Không tìm thấy hóa đơn để thanh toán. Vui lòng thử lại.");
-    return;
-  }
-  const method = DEFAULT_PAYMENT_METHOD;
-  const returnUrl = PAYMENT_RETURN_URL;
-  // khóa nút để tránh bấm liên tục
-  const payBtn = document.querySelector(".btn-pay");
-  if (payBtn) {
-    payBtn.disabled = true;
-    payBtn.innerText = "Đang mở cổng...";
-  }
-  const handleFormHtml = (html, paymentUrl, payload) => {
-    if (html) {
-      const wrapper = document.createElement("div");
-      wrapper.style.display = "none";
-      wrapper.innerHTML = html;
-      document.body.appendChild(wrapper);
-      const form = wrapper.querySelector("form");
-      if (form) form.submit();
-      return true;
-    }
-    if (paymentUrl && payload) {
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = paymentUrl;
-      form.style.display = "none";
-      Object.entries(payload).forEach(([k, v]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = k;
-        input.value = v;
-        form.appendChild(input);
-      });
-      document.body.appendChild(form);
-      form.submit();
-      return true;
-    }
-    return false;
-  };
+async function handlePaymentReturn() {
+  try {
+    const returnData = await window.PaymentHandler.handlePaymentReturn();
+    if (!returnData) return;
+    console.log("[handlePaymentReturn] Result:", returnData);
 
-  const promise = window.api.billing.pay(invoiceId, currentBookingToProcess.id, method, returnUrl);
-
-  promise
-    .then((res) => {
-      console.log("Billing pay response", res);
-      if (method === "sepay") {
-        alert("Cổng SePay đã tắt, vui lòng chọn phương thức khác.");
-        return;
-      }
-        return;
-      }
-      if (res?.payment_url) {
-        window.location.href = res.payment_url;
-      } else if (res?.form_html) {
-        handleFormHtml(res.form_html);
+    if (returnData.success) {
+      showToast(returnData.message || "Thanh toán thành công! Ô sân đã được cập nhật.");
+      if (currentView !== "booking") {
+        changeView("booking");
       } else {
-        alert("Không nhận được đường dẫn thanh toán từ server.");
+        window.renderBookingGrid?.();
       }
-    })
-    .catch((err) => {
-      console.error("Pay error", { err, invoiceId, method, returnUrl });
-      alert(
-        `Thanh toán thất bại (invoice ${invoiceId}). Nếu tiếp tục gặp lỗi 404/Not Found, hãy kiểm tra:\n` +
-          "1) APIGateway đã rebuild sau khi cập nhật billing base (/billing).\n" +
-          "2) Hóa đơn tồn tại trong service Billing.\n" +
-          "3) payment_reference của booking là số hợp lệ."
-      );
-    })
-    .finally(() => {
-      if (payBtn) {
-        payBtn.disabled = false;
-        payBtn.innerText = "Thanh toán";
-      }
-    });
+      window.scrollTo(0, 0);
+    } else {
+      showToast(returnData.message || "Thanh toán thất bại. Vui lòng thử lại.");
+    }
+  } catch (err) {
+    console.error("[handlePaymentReturn] Error:", err);
+    showToast("Không thể xác nhận thanh toán. Vui lòng thử lại sau.");
+  }
 }
 
-// --- INIT ---
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", function (e) {
@@ -1334,5 +1433,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  bootstrapCustomerView().then(() => handlePaymentReturn());
+  bootstrapCustomerView()
+    .then(() => handlePaymentReturn())
+    .catch((err) => {
+      console.error("[bootstrapCustomerView] Error:", err);
+    });
 });

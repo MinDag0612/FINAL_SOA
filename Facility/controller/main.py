@@ -6,25 +6,10 @@ from Facility.models.facility_models import FacilityCreate, FacilityUpdate
 from Facility.repository.facility_repository import FacilityRepository
 from Facility.service.facility_service import FacilityService
 from jwt_shared.jwt import jwt_services
-<<<<<<< HEAD
-=======
-from fastapi.middleware.cors import CORSMiddleware
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 
 app = FastAPI()
 db = connDB()
 
-<<<<<<< HEAD
-=======
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],             # hoặc chỉ định domain nào được phép
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 jwt_services = jwt_services()
 
 def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
@@ -99,26 +84,15 @@ def get_facilities_by_manager(
     ):
     manager_id = user_info.get("sub")
     try:
+        if not manager_id:
+            raise HTTPException(status_code=400, detail="Manager ID not found in token")
+        print(f"[Facility Manager] Loading facilities for manager_id={manager_id}, user_info={user_info}")
         facilities = service.get_facilities_by_manager(manager_id)
+        print(f"[Facility Manager] Found {len(facilities)} facilities")
         return {"status": "success", "data": facilities}
     except HTTPException as e:
-        raise {"status": "error", "detail": e.detail + " -- from facility controller"}
-<<<<<<< HEAD
-=======
-
-@app.get("/manager/user_id_by_facility/{facility_id}")
-def get_manager_id_by_facility(
-    facility_id: int,  
-    user_info: dict = Depends(get_current_user),
-    service: FacilityService = Depends(get_facility_service)
-    ):
-    role = user_info["infor"]["role"]
-    if role != "manager":
-        raise HTTPException(status_code=403, detail="Access forbidden: Managers only")
-    try:
-        manager_user_id = service.get_manager_id_by_facility(facility_id)
-        return {"status": "success", "user_id": manager_user_id}
-    except HTTPException as e:
-        raise {"status": "error", "detail": e.detail + " -- from facility controller"}
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
+        raise e
+    except Exception as e:
+        print(f"[Facility Manager Error] {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading facilities: {str(e)}")
     

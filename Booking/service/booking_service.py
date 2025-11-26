@@ -25,6 +25,9 @@ class BookingService:
         self.court_service_url = os.getenv("COURT_SERVICE_URL", "http://court_api:8004")
         self.facility_service_url = os.getenv("FACILITY_SERVICE_URL", "http://facility_api:8005")
         self.billing_service_url = os.getenv("BILLING_SERVICE_URL", "http://billing_api:8002")
+        self.enable_billing_autopay = (
+            os.getenv("ENABLE_BOOKING_AUTOPAY", "false").strip().lower() == "true"
+        )
 
     def list_bookings(self, user_id: Optional[int] = None) -> List[Booking]:
         return self.repo.list_bookings(user_id=user_id)
@@ -37,12 +40,7 @@ class BookingService:
             raise HTTPException(status_code=403, detail="Forbidden")
         return booking
 
-<<<<<<< HEAD
-    def create_booking(self, payload: BookingCreate) -> dict:
-=======
     def create_booking(self, payload: BookingCreate, email: str) -> dict:
-        self.repo.cleanup_expired_holds()
->>>>>>> MAIN
         if payload.user_id is None:
             raise HTTPException(status_code=400, detail="Missing user_id for booking")
         self._validate_items(payload.items)
@@ -60,18 +58,20 @@ class BookingService:
         invoice = None
         payment_intent = None
         billing_error = None
-        try:
-            invoice = self._create_invoice(booking)
-            invoice_data = invoice.get("data") if isinstance(invoice, dict) else None
-            invoice_id = None
-            if isinstance(invoice_data, dict):
-                invoice_id = invoice_data.get("invoice_id") or invoice_data.get("id")
-            if invoice_id:
-                self.repo.update_payment_reference(booking.booking_id, str(invoice_id))
-                booking.payment_reference = str(invoice_id)
-                payment_intent = self._initiate_payment(invoice_id, booking, payload.payment_method)
-        except Exception as exc:
-            billing_error = str(exc)
+
+        if self.enable_billing_autopay:
+            try:
+                invoice = self._create_invoice(booking)
+                invoice_data = invoice.get("data") if isinstance(invoice, dict) else None
+                invoice_id = None
+                if isinstance(invoice_data, dict):
+                    invoice_id = invoice_data.get("invoice_id") or invoice_data.get("id")
+                if invoice_id:
+                    self.repo.update_payment_reference(booking.booking_id, str(invoice_id))
+                    booking.payment_reference = str(invoice_id)
+                    payment_intent = self._initiate_payment(invoice_id, booking, payload.payment_method)
+            except Exception as exc:
+                billing_error = str(exc)
 
         
         send_event("booking.confirmed", {
@@ -115,16 +115,26 @@ class BookingService:
                 pass
         return cancelled
 
+    def delete_booking(self, booking_id: int) -> None:
+        booking = self.repo.get_booking(booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        deleted = self.repo.delete_booking(booking_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Booking not found")
+
     def update_payment_status(self, booking_id: int, payload: PaymentStatusUpdate) -> Booking:
         booking = self.repo.get_booking(booking_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found")
 
         if payload.status == "paid":
+            # Explicitly move pending bookings to confirmed once payment succeeds
+            target_status = "confirmed" if booking.status in ("pending", "booked") else booking.status
             updated = self.repo.update_payment_status(
                 booking_id,
                 payment_status="paid",
-                status="confirmed",
+                status=target_status,
                 reference_id=payload.reference_id,
                 paid_at=datetime.utcnow(),
             )
@@ -231,9 +241,22 @@ class BookingService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
         
-    def get_bookings_by_facility(self, facility_id: int) -> List[dict]:
-        try:
-            bookings = self.repo.get_bookings_by_facility(facility_id)
-            return bookings
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+    def get_bookings_by_facility(self, facility_id: int, date: Optional[str] = None) -> List[Booking]:
+        target_date = None
+        if date:
+            try:
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
+
+        bookings = self.repo.list_bookings(facility_id=facility_id)
+
+        if target_date:
+            filtered = []
+            for booking in bookings:
+                items = booking.items or []
+                if any(item.start_time.date() == target_date for item in items):
+                    filtered.append(booking)
+            bookings = filtered
+
+        return bookings

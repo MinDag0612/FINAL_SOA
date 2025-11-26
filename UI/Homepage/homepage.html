@@ -7,6 +7,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="homepage.css">
+    <script>
+        window.CONFIG = {
+            BACKEND_PUBLIC_URL: 'https://hyperpathetic-fugally-erin.ngrok-free.dev',
+            SEPAY_ENABLED: true
+        };
+    </script>
 </head>
 <body>
 
@@ -123,11 +129,15 @@
                 </div>
             </div>
 
-            <button class="btn-pay-cta" onclick="submitQuickCheckout()">Xác nhận và thanh toán</button>
+            <button class="btn-pay-cta" onclick="submitQuickCheckout()">Xác nhận đặt sân</button>
         </div>
     </div>
 
     <script src="apiClient.js"></script>
+    <script src="payment_handler.js"></script>
+    <script src="../Manager/manager_courts.js"></script>
+    <script src="../Manager/manager_booking.js"></script>
+    <script src="../Manager/manager_report.js"></script>
     <script src="homepage.js?v=20250107"></script>
 </body>
 </html>

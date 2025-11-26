@@ -1,4 +1,6 @@
-from fastapi import Depends, FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session
 from jwt_shared.jwt import jwt_services
 
@@ -51,7 +53,9 @@ def list_bookings(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return {"status": "success", "data": service.list_bookings(user_id=int(user["sub"]))}
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return {"status": "success", "data": service.list_bookings(user_id=user_id)}
 
 
 @app.post("/booking")
@@ -70,7 +74,9 @@ def get_booking(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return {"status": "success", "data": service.get_booking(booking_id, user_id=int(user["sub"]))}
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return {"status": "success", "data": service.get_booking(booking_id, user_id=user_id)}
 
 
 @app.put("/booking/{booking_id}")
@@ -93,6 +99,18 @@ def cancel_booking(
     return service.cancel_booking(booking_id, payload, user_id=int(user["sub"]))
 
 
+@app.delete("/booking/{booking_id}")
+def delete_booking(
+    booking_id: int,
+    service: BookingService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+):
+    role = user.get("infor", {}).get("role")
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Only managers can delete bookings")
+    service.delete_booking(booking_id)
+    return {"status": "success"}
+
 @app.post("/booking/{booking_id}/payment-status")
 def payment_callback(
     booking_id: int,
@@ -102,51 +120,24 @@ def payment_callback(
     return service.update_payment_status(booking_id, payload)
 
 #------------------FOR MANAGER FLOW----------------------------------
-<<<<<<< HEAD
 @app.get("/manager/{court_id}/time_slots")
-=======
-@app.get("/manager/court_id={court_id}/time_slots")
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 def get_time_slots_by_court(
     court_id: int,
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-<<<<<<< HEAD
     try:
         time_slots = service.get_time_slots_by_court(court_id)
-=======
-    role = user["infor"]["role"]
-    if role != "manager":
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    user_id = int(user["sub"])
-    
-    try:
-        time_slots = service.get_time_slots_by_court(court_id, user_id)
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
         return {"status": "success", "data": time_slots}
     except HTTPException as e:
         raise {"status": "error", "detail": e.detail}
     
-<<<<<<< HEAD
 @app.get("/manager/{facility_id}/bookings")
-=======
-@app.get("/manager/facility_id={facility_id}/bookings")
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
 def get_bookings_by_facility(
     facility_id: int,
+    date: Optional[str] = Query(None),
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-<<<<<<< HEAD
-=======
-    role = user["infor"]["role"]
-    if role != "manager":
-        raise HTTPException(status_code=403, detail="Access denied")
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
-    try:
-        bookings = service.get_bookings_by_facility(facility_id)
-        return {"status": "success", "data": bookings}
-    except HTTPException as e:
-        raise {"status": "error", "detail": e.detail}
+    bookings = service.get_bookings_by_facility(facility_id, date)
+    return {"status": "success", "data": bookings}

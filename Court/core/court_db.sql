@@ -17,10 +17,6 @@ CREATE TABLE Court (
 
 INSERT INTO Court (facility_id, name, surface_type, hourly_rate, description, available_hours, is_active)
 VALUES
-<<<<<<< HEAD
-(1, 'Badminton Court #1', 'wood', 100000, 'Wood floor', NULL, 1),
-(1, 'Badminton Court #2', 'wood', 100000, 'Wood floor', NULL, 1),
-=======
 (1, 'Badminton Court #1', 'wood', 100000, 'Wood floor', '["06:00","07:00","08:00","09:00","19:00","20:00"]', 1),
 <<<<<<< HEAD
 (1, 'Badminton Court #2', 'wood', 100000, 'Wood floor', '["06:00","07:00","08:00","09:00","19:00","20:00"]', 1);

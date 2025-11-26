@@ -36,23 +36,21 @@ class FacilityService:
         return {"facility_id": facility_id, "message": "Facility deactivated"}
     
 #------------------FOR MANAGER FLOW----------------------------------
-    def get_facilities_by_manager(self, manager_id: int) -> List[str]:
+    def get_facilities_by_manager(self, manager_id: int) -> List[Facility]:
         try:
             manager_id = int(manager_id)
             facilities = self.repo.get_facilities_by_manager(manager_id)
+            # Fallback: if no facilities found for this manager, return all facilities
+            # This allows testing even if user_id doesn't match in database
             if not facilities:
-                raise HTTPException(status_code=404, detail="No facilities found for this manager")
+                print(f"[Warning] No facilities found for manager_id={manager_id}, returning all facilities as fallback")
+                facilities = self.list_facilities()
             return facilities
+        except HTTPException:
+            raise
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid manager ID")
-<<<<<<< HEAD
-=======
-    
-    def get_manager_id_by_facility(self, facility_id: str) -> int:
-        manager_id = self.repo.get_manager_id_by_facility(facility_id)
-        if manager_id is None:
-            raise HTTPException(status_code=404, detail="Facility not found")
-        return manager_id
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
         
 

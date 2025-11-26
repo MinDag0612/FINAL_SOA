@@ -38,19 +38,31 @@
     localStorage.removeItem("soa_auth");
   };
 
+  const withCacheBuster = (url) => {
+    const cacheParam = `_=${Date.now()}`;
+    return url.includes("?") ? `${url}&${cacheParam}` : `${url}?${cacheParam}`;
+  };
+
   const request = async (path, options = {}) => {
+    const { forceRefresh = false, ...fetchOptions } = options;
     const auth = getAuth();
-    const headers = new Headers(options.headers || {});
-    if (!headers.has("Content-Type") && options.body) {
+    const headers = new Headers(fetchOptions.headers || {});
+    if (!headers.has("Content-Type") && fetchOptions.body) {
       headers.set("Content-Type", "application/json");
     }
     if (auth.token) {
       headers.set("Authorization", `Bearer ${auth.token}`);
     }
 
-    const resp = await fetch(`${DEFAULT_BASE}${path}`, {
-      ...options,
+    if (forceRefresh) {
+      headers.set("Cache-Control", "no-cache");
+      headers.set("Pragma", "no-cache");
+    }
+    const requestUrl = forceRefresh ? withCacheBuster(`${DEFAULT_BASE}${path}`) : `${DEFAULT_BASE}${path}`;
+    const resp = await fetch(requestUrl, {
+      ...fetchOptions,
       headers,
+      cache: forceRefresh ? "no-store" : fetchOptions.cache,
     });
 
     if (resp.status === 401) {
@@ -76,44 +88,176 @@
     request,
     court: {
       list: async () => {
-        const res = await request("/court/court");
-        return res?.data || [];
+        try {
+          const res = await request("/court/court");
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Court list error:", err);
+          throw err;
+        }
+      },
+      listByFacility: async (facilityId) => {
+        if (!facilityId) return [];
+        try {
+          const res = await request(`/court/manager/${facilityId}/courts`);
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Manager court list error:", err);
+          throw err;
+        }
       },
     },
     booking: {
-      list: async () => {
-        const res = await request("/booking/booking");
-        return res?.data || [];
+      list: async (query = {}, options = {}) => {
+        try {
+          const params = new URLSearchParams();
+          Object.entries(query).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              params.append(key, value);
+            }
+          });
+          const queryString = params.toString();
+          const res = await request(`/booking/booking${queryString ? `?${queryString}` : ""}`, options);
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Booking list error:", err);
+          throw err;
+        }
+      },
+      get: async (bookingId, options = {}) => {
+        try {
+          const res = await request(`/booking/booking/${bookingId}`, options);
+          return res?.data || res;
+        } catch (err) {
+          console.error("Booking get error:", err);
+          throw err;
+        }
+      },
+      delete: async (bookingId, options = {}) => {
+        try {
+          return request(`/booking/booking/${bookingId}`, {
+            method: "DELETE",
+            ...options,
+          });
+        } catch (err) {
+          console.error("Booking delete error:", err);
+          throw err;
+        }
       },
       create: async (payload) => {
-        return request("/booking/booking", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        try {
+          const res = await request("/booking/booking", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          return res;
+        } catch (err) {
+          console.error("Booking create error:", err);
+          throw err;
+        }
+      },
+      managerList: async (facilityId, date) => {
+        if (!facilityId) return [];
+        try {
+          const params = new URLSearchParams();
+          if (date) params.append("date", date);
+          const queryString = params.toString();
+          const res = await request(
+            `/booking/manager/${facilityId}/bookings${queryString ? `?${queryString}` : ""}`
+          );
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Manager booking list error:", err);
+          throw err;
+        }
       },
       cancel: async (bookingId, payload) => {
-        return request(`/booking/booking/${bookingId}/cancel`, {
-          method: "POST",
-          body: JSON.stringify(payload || { reason: "Người dùng hủy" }),
-        });
-      },
-    },
-    billing: {
-      history: async (userId, limit = 10) => {
-        const res = await request(`/billing/history?userId=${userId}&limit=${limit}`);
-        return res?.data || [];
-      },
-      pay: async (invoiceId, bookingId, method = "vnpay", returnUrl) => {
-        return request(`/billing/${invoiceId}/pay`, {
-          method: "POST",
-          body: JSON.stringify({ booking_id: bookingId, method, return_url: returnUrl }),
-        });
+        try {
+          return request(`/booking/booking/${bookingId}/cancel`, {
+            method: "POST",
+            body: JSON.stringify(payload || { reason: "Người dùng hủy" }),
+          });
+        } catch (err) {
+          console.error("Booking cancel error:", err);
+          throw err;
+        }
       },
     },
     facility: {
       list: async () => {
-        const res = await request("/facility/facility");
-        return res?.data || [];
+        try {
+          const res = await request("/facility/facility");
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Facility list error:", err);
+          throw err;
+        }
+      },
+      managerList: async () => {
+        try {
+          const res = await request("/facility/manager/facilities");
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Manager facility list error:", err);
+          throw err;
+        }
+      },
+    },
+    billing: {
+      history: async (userId, limit = 10) => {
+        try {
+          const res = await request(`/billing/history?userId=${userId}&limit=${limit}`);
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Billing history error:", err);
+          return [];
+        }
+      },
+      createInvoice: async (payload) => {
+        try {
+          const res = await request("/billing", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          return res?.data || res;
+        } catch (err) {
+          console.error("Create invoice error:", err);
+          throw err;
+        }
+      },
+      initiatePayment: async (invoiceId, payload) => {
+        try {
+          const res = await request(`/billing/${invoiceId}/pay`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          return res;
+        } catch (err) {
+          console.error("Initiate payment error:", err);
+          throw err;
+        }
+      },
+      getInvoice: async (invoiceId) => {
+        try {
+          const res = await request(`/billing/${invoiceId}`);
+          return res?.data || res;
+        } catch (err) {
+          console.error("Get invoice error:", err);
+          throw err;
+        }
+      },
+      // SePay Payment Gateway
+      createSePayPayment: async (invoiceId, payload) => {
+        try {
+          const res = await request(`/billing/${invoiceId}/sepay/create-payment`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          return res?.data || res;
+        } catch (err) {
+          console.error("Create SePay payment error:", err);
+          throw err;
+        }
       },
     },
     auth: {
