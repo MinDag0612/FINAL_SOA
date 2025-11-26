@@ -52,46 +52,7 @@
             </div>
         </div>
     </div>
-
-    <div id="bookingModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Đặt Sân Mới</h3><span class="close-btn" onclick="closeModal('bookingModal')">&times;</span></div>
-            <div class="modal-body">
-                <div class="form-group"><label>Loại khách</label><div class="radio-group"><label><input type="radio" name="custType" checked> Khách vãng lai</label><label><input type="radio" name="custType"> Thành viên</label></div></div>
-                <div class="form-group"><label>Tên khách hàng</label><input type="text" id="b-name" placeholder="Nhập tên khách..."></div>
-                <div class="row-2">
-                    <div class="form-group"><label>Ngày</label><input type="date" id="b-date"></div>
-                    <div class="form-group"><label>Sân</label><select id="b-court"><option value="1">Sân 01</option><option value="2">Sân 02</option><option value="3">Sân 03</option></select></div>
-                </div>
-                <div class="row-2">
-                    <div class="form-group"><label>Giờ bắt đầu</label>
-                        <div style="display:flex;gap:8px;">
-                            <select id="b-hour" style="flex:1;"></select>
-                            <select id="b-minute" style="width:90px;">
-                                <option value="00">00</option>
-                                <option value="15">15</option>
-                                <option value="30">30</option>
-                                <option value="45">45</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group"><label>Giờ kết thúc</label>
-                        <div style="display:flex;gap:8px;">
-                            <select id="b-end-hour" style="flex:1;"></select>
-                            <select id="b-end-minute" style="width:90px;">
-                                <option value="00">00</option>
-                                <option value="15">15</option>
-                                <option value="30">30</option>
-                                <option value="45">45</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <button class="btn-save" onclick="confirmBooking()">Xác nhận đặt sân</button>
-            </div>
-        </div>
-    </div>
-
+    
     <div id="selectionModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>Chọn cơ sở & ngày</h3><span class="close-btn" onclick="closeModal('selectionModal')">&times;</span></div>
@@ -167,6 +128,6 @@
     </div>
 
     <script src="apiClient.js"></script>
-    <script src="homepage.js"></script>
+    <script src="homepage.js?v=20250107"></script>
 </body>
 </html>
