@@ -34,7 +34,7 @@ def get_service(session: Session = Depends(db.get_db)) -> BookingService:
     return BookingService(session)
 
 
-@app.get("/")
+@app.get("/health")
 def health_check(user: dict = Depends(get_current_user)):
     return {"status": "ok", "service": "booking", "user": user}
 
@@ -61,7 +61,7 @@ def create_booking(
     user: dict = Depends(get_current_user),
 ):
     payload_with_user = payload.model_copy(update={"user_id": int(user["sub"])})
-    return {"status": "success", "data": service.create_booking(payload_with_user)}
+    return {"status": "success", "data": service.create_booking(payload_with_user, user["infor"]["email"])}
 
 
 @app.get("/booking/{booking_id}")
@@ -100,3 +100,28 @@ def payment_callback(
     service: BookingService = Depends(get_service),
 ):
     return service.update_payment_status(booking_id, payload)
+
+#------------------FOR MANAGER FLOW----------------------------------
+@app.get("/manager/{court_id}/time_slots")
+def get_time_slots_by_court(
+    court_id: int,
+    service: BookingService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+):
+    try:
+        time_slots = service.get_time_slots_by_court(court_id)
+        return {"status": "success", "data": time_slots}
+    except HTTPException as e:
+        raise {"status": "error", "detail": e.detail}
+    
+@app.get("/manager/{facility_id}/bookings")
+def get_bookings_by_facility(
+    facility_id: int,
+    service: BookingService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+):
+    try:
+        bookings = service.get_bookings_by_facility(facility_id)
+        return {"status": "success", "data": bookings}
+    except HTTPException as e:
+        raise {"status": "error", "detail": e.detail}

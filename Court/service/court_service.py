@@ -64,3 +64,13 @@ class CourtService:
             date=params.date,
             available_slots=slots,
         )
+#------------------FOR MANAGER FLOW----------------------------------
+    def get_courts_by_facility(self, facility_id: int) -> List[Court]:
+        try:
+            facility_id = int(facility_id)
+            courts = self.court_repo.get_courts_by_facility(facility_id)
+            if not courts:
+                raise HTTPException(status_code=404, detail="No courts found for this facility")
+            return courts
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid facility ID")

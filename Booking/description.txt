@@ -1,0 +1,63 @@
+court_id: 1
+
+API:        http://booking_api:8003/manager/{court_id}/time_slots
+AUTHEN:     JWT - KEY
+PARAMETER:  court_id - Path param
+RETURN:     
+        {
+            "status": "success",
+            "data": [
+                {
+                    "item_id": 1,
+                    "booking_id": 1,
+                    "court_id": 1,
+                    "start_time": "2025-11-20T07:00:00",
+                    "end_time": "2025-11-20T09:00:00",
+                    "price": 200000.0,
+                    "payment_status": "paid"
+                }
+            ]
+        }
+=> Trả về các booking: court_id + khung giờ đặt (ĐÃ TRẢ) 
+
+facility_id: 1
+
+API:        http://booking_api:8003/manager/{facility_id}/bookings
+AUTHEN:     JWT - KEY
+PARAMETER:  facility_id - Path param
+RETURN:     
+        {
+            "status": "success",
+            "data": [
+                {
+                    "booking_id": 5,
+                    "user_id": 1,
+                    "facility_id": 1,
+                    "status": "pending",
+                    "total_amount": 120000.0,
+                    "payment_status": "pending",
+                    "payment_method": "cash",
+                    "payment_reference": "5",
+                    "hold_expires_at": "2025-11-24T20:57:26",
+                    "paid_at": null,
+                    "note": "optional"
+                },
+                {
+                    "booking_id": 1,
+                    "user_id": 1,
+                    "facility_id": 1,
+                    "status": "confirmed",
+                    "total_amount": 200000.0,
+                    "payment_status": "paid",
+                    "payment_method": "cash",
+                    "payment_reference": null,
+                    "hold_expires_at": null,
+                    "paid_at": "2025-11-24T20:30:23",
+                    "note": null
+                }
+            ]
+        }
+=> Trả về các booking theo facility_id TRẢ VÀ CHƯA TRẢ
+
+
+

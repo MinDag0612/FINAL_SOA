@@ -157,6 +157,7 @@ services:
       - "8001:8001"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 
@@ -180,6 +181,7 @@ services:
       - "8002:8002"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     networks:
@@ -207,6 +209,7 @@ services:
       - "8003:8003"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 
@@ -232,6 +235,7 @@ services:
       - "8004:8004"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 
@@ -257,6 +261,7 @@ services:
       - "8005:8005"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 
@@ -283,6 +288,7 @@ services:
       - "8006:8006"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 
@@ -301,6 +307,7 @@ services:
       - "8007:8007"
     volumes:
       - ./:/app
+      - ./jwt_shared:/app/jwt_shared
     networks:
       - backend
 

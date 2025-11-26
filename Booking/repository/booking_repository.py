@@ -1,4 +1,5 @@
 from datetime import datetime
+from http.client import HTTPException
 from typing import List, Optional
 from sqlalchemy import text, bindparam
 from sqlalchemy.orm import Session
@@ -237,3 +238,66 @@ class BookingRepository:
             paid_at=row.get("paid_at"),
             items=items,
         )
+        
+#--------- FOR MANAGER FLOW --------------
+    def get_time_slots_by_court(self, court_id: int) -> List[dict]:
+        try:
+            query = text(
+                """
+                SELECT bi.item_id, bi.booking_id, bi.court_id, bi.start_time, bi.end_time, bi.price, b.payment_status
+                FROM booking_items bi
+                JOIN bookings b ON bi.booking_id = b.booking_id
+                WHERE bi.court_id = :court_id
+                AND b.payment_status = 'paid'
+                ORDER BY bi.start_time;
+
+                """
+            )
+            rows = self.db.execute(query, {"court_id": court_id}).mappings().all()
+            slots = [ 
+                {
+                    "item_id": row["item_id"],
+                    "booking_id": row["booking_id"],
+                    "court_id": row["court_id"],
+                    "start_time": row["start_time"],
+                    "end_time": row["end_time"],
+                    "price": float(row["price"]),
+                    "payment_status": row["payment_status"]
+                }
+                for row in rows
+            ]
+            return slots
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    def get_bookings_by_facility(self, facility_id: int) -> List[dict]:
+        try:
+            query = text(
+                """
+                SELECT booking_id, user_id, facility_id, status, total_amount, payment_status,
+                       payment_method, payment_reference, hold_expires_at, paid_at, note
+                FROM bookings
+                WHERE facility_id = :facility_id
+                ORDER BY created_at DESC
+                """
+            )
+            rows = self.db.execute(query, {"facility_id": facility_id}).mappings().all()
+            bookings = [
+                {
+                    "booking_id": row["booking_id"],
+                    "user_id": row["user_id"],
+                    "facility_id": row["facility_id"],
+                    "status": row["status"],
+                    "total_amount": float(row["total_amount"]),
+                    "payment_status": row["payment_status"],
+                    "payment_method": row["payment_method"],
+                    "payment_reference": row["payment_reference"],
+                    "hold_expires_at": row["hold_expires_at"],
+                    "paid_at": row["paid_at"],
+                    "note": row["note"],
+                }
+                for row in rows
+            ]
+            return bookings
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,33 @@
+facilities_id: 1
+
+API:        http://court_api:8004/manager/{facility_id}/courts - GET
+AUTHEN:     JWT - KEY
+PARAMETER:  facility_id - Path param
+RETURN:     
+            {
+                "status": "success",
+                "data": {
+                    "facility_id": 1,
+                    "courts": [
+                        {
+                            "court_id": 1,
+                            "name": "Badminton Court #1",
+                            "surface_type": "wood",
+                            "hourly_rate": 100000.0,
+                            "description": "Wood floor",
+                            "available_hours": "[\"06:00\", \"07:00\", \"08:00\", \"09:00\", \"19:00\", \"20:00\"]",
+                            "is_active": 1
+                        },
+                        {
+                            "court_id": 2,
+                            "name": "Badminton Court #2",
+                            "surface_type": "wood",
+                            "hourly_rate": 100000.0,
+                            "description": "Wood floor",
+                            "available_hours": "[\"06:00\", \"07:00\", \"08:00\", \"09:00\", \"19:00\", \"20:00\"]",
+                            "is_active": 1
+                        }
+                    ]
+                }
+            }
+=> Trả về thông tin sân theo facilities_id

@@ -11,11 +11,20 @@ from jwt_shared.jwt_models import Token
 from typing import Annotated
 from Auth.models.auth_models import New_User_infor
 from Auth.message import send_event
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 db = connDB()
 jwt_services = jwt_services()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],             # hoặc chỉ định domain nào được phép
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/token", response_model=Token)
 def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db_session: Session = Depends(db.get_db)):
@@ -83,6 +92,4 @@ def register_user(user_infor: New_User_infor, db_session: Session = Depends(db.g
         }
         
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e) + " -- from main controller")
-        
-        
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e) + " -- from main controller")    

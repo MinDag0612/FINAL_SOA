@@ -34,3 +34,16 @@ class FacilityService:
         if not deleted:
             raise HTTPException(status_code=404, detail="Facility not found")
         return {"facility_id": facility_id, "message": "Facility deactivated"}
+    
+#------------------FOR MANAGER FLOW----------------------------------
+    def get_facilities_by_manager(self, manager_id: int) -> List[str]:
+        try:
+            manager_id = int(manager_id)
+            facilities = self.repo.get_facilities_by_manager(manager_id)
+            if not facilities:
+                raise HTTPException(status_code=404, detail="No facilities found for this manager")
+            return facilities
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid manager ID")
+        
+
