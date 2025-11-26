@@ -36,7 +36,15 @@ def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depen
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = jwt_services.create_access_token(
-        data={"sub": str(user['user_id'])}
+        data={
+            "sub": str(user['user_id']),
+            "infor": {
+                "user_id": user['user_id'],
+                "email": user['email'],
+                "fullname": user.get('fullname', ''),
+                "role": user.get('role', 'customer')
+            }
+        }
     )
     return {"access_token": access_token, "token_type": "bearer"}
 

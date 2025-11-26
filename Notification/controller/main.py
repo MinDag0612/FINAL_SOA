@@ -5,24 +5,11 @@ from Notification.models.notification_models import (
     ReminderPayload,
 )
 from Notification.service.notification_service import NotificationService
-from fastapi.exceptions import HTTPException as HttpException
-from jwt_shared.jwt import jwt_services
+from jwt_shared.dependencies import get_current_user
 import json, threading
 from Notification.message import consume_messages
 
 app = FastAPI()
-
-jwt_services = jwt_services()
-
-def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
-    try:
-        payload = jwt_services.decode_access_token(token)
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return payload  # hoặc chỉ return user_id
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e) + " Invalid token")
 
 
 def get_service() -> NotificationService:
@@ -38,11 +25,11 @@ def send_email_verify_register(
     service: NotificationService = Depends(get_service),
     user: dict = Body(...)
     ):
-    # return user
     try:
-        return service.send_email_verify_register(user), {"status": "success"}
+        result = service.send_email_verify_register(user)
+        return {"status": "success", "data": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e) + "-- from notification controller")
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/notification/send-booking-confirmed")
 def send_booking_confirmed(

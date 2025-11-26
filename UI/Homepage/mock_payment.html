@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Payment Gateway</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .payment-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+        .payment-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .info-value {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .amount {
+            color: #667eea !important;
+            font-size: 24px !important;
+        }
+        .action-buttons {
+            display: grid;
+            gap: 15px;
+        }
+        .btn {
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+            color: white;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(238, 9, 121, 0.4);
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="logo">
+            <h1>🏸 Mock Payment Gateway</h1>
+            <p>Test Payment Interface</p>
+        </div>
+
+        <div class="payment-info" id="paymentInfo">
+            <div class="info-row">
+                <span class="info-label">Mã đơn hàng:</span>
+                <span class="info-value" id="orderCode">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Booking ID:</span>
+                <span class="info-value" id="bookingId">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Mô tả:</span>
+                <span class="info-value" id="description">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Số tiền:</span>
+                <span class="info-value amount" id="amount">-</span>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-success" onclick="handlePaymentSuccess()">
+                ✅ Thanh toán thành công
+            </button>
+            <button class="btn btn-danger" onclick="handlePaymentFailed()">
+                ❌ Thanh toán thất bại
+            </button>
+            <button class="btn btn-secondary" onclick="handlePaymentCancel()">
+                ↩️ Hủy thanh toán
+            </button>
+        </div>
+
+        <div class="note">
+            <strong>⚠️ Lưu ý:</strong> Đây là mock payment gateway để test. Trong production, tích hợp SePay thật.
+        </div>
+    </div>
+
+    <script>
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderCode = urlParams.get('orderCode') || 'N/A';
+        const amount = urlParams.get('amount') || '0';
+        const description = urlParams.get('description') || 'No description';
+        const returnUrl = urlParams.get('returnUrl') || '/ui/Homepage/homepage.html';
+        const cancelUrl = urlParams.get('cancelUrl') || '/ui/Homepage/homepage.html';
+
+        // Extract booking_id from orderCode (format: invoice-X-booking-Y)
+        let bookingId = 'N/A';
+        const match = orderCode.match(/booking-(\d+)/);
+        if (match) {
+            bookingId = match[1];
+        }
+
+        // Display payment info
+        document.getElementById('orderCode').textContent = orderCode;
+        document.getElementById('bookingId').textContent = bookingId;
+        document.getElementById('description').textContent = decodeURIComponent(description);
+        document.getElementById('amount').textContent = new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(amount);
+
+        function handlePaymentSuccess() {
+            const successUrl = `${returnUrl}&status=success&orderCode=${orderCode}&transactionId=MOCK-TXN-${Date.now()}&amount=${amount}`;
+            window.location.href = successUrl;
+        }
+
+        function handlePaymentFailed() {
+            const failUrl = `${returnUrl}&status=failed&orderCode=${orderCode}`;
+            window.location.href = failUrl;
+        }
+
+        function handlePaymentCancel() {
+            window.location.href = cancelUrl;
+        }
+    </script>
+</body>
+</html>

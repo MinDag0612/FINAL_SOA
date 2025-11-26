@@ -11,19 +11,9 @@ import json
 
 
 class NotificationService:
-    """Stub notification service."""
-    url = {
-        "auth": "http://auth_service:8001"
-    }
 
     def __init__(self):
-        self._log = NotificationLog(
-            notification_id=1,
-            user_email="demo@example.com",
-            channel="email",
-            status="sent",
-            sent_at="2024-06-20T08:00:00Z",
-        )
+        pass
         
     @staticmethod
     def send_email_verify_register(user: dict):

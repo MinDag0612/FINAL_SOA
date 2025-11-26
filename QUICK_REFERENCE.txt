@@ -1,0 +1,216 @@
+╔══════════════════════════════════════════════════════════════╗
+║           QUICK FIX REFERENCE CARD                           ║
+║           Dự án SOA - Quản lý sân cầu lông                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🚀 REBUILD SAU KHI SỬA                                        │
+└──────────────────────────────────────────────────────────────┘
+
+  ./rebuild_fixed_services.sh
+
+  Hoặc manual:
+  
+  docker-compose up -d --build apigateway billing_api
+  docker-compose restart nginx
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📍 CẬP NHẬT NGROK URL (SAU KHI RESTART NGROK)                 │
+└──────────────────────────────────────────────────────────────┘
+
+  1. Lấy URL mới: https://YOUR-NEW-URL.ngrok-free.dev
+  
+  2. Update 2 files:
+     - Billing/core/.env → BACKEND_PUBLIC_URL
+     - UI/Homepage/homepage.html → window.CONFIG.BACKEND_PUBLIC_URL
+  
+  3. Rebuild:
+     ./rebuild_fixed_services.sh
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🐛 DEBUG COMMANDS                                             │
+└──────────────────────────────────────────────────────────────┘
+
+  # Xem tất cả services
+  docker-compose ps
+  
+  # Logs API Gateway (xem routing)
+  docker-compose logs -f apigateway
+  
+  # Logs Billing (xem SePay)
+  docker-compose logs -f billing_api
+  
+  # Logs real-time của service cụ thể
+  docker-compose logs -f <service_name>
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ ⚡ QUICK TESTS                                                │
+└──────────────────────────────────────────────────────────────┘
+
+  Test 1: Health Check
+  ──────────────────────
+  curl http://localhost/billing/
+  → Phải trả về: {"status": "ok", "service": "billing"}
+  
+  Test 2: Auth
+  ──────────────────────
+  curl http://localhost/auth/
+  → Phải trả về JSON
+  
+  Test 3: Frontend
+  ──────────────────────
+  http://localhost/ui/Homepage/homepage.html
+  → Phải load trang login/homepage
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🔧 COMMON FIXES                                               │
+└──────────────────────────────────────────────────────────────┘
+
+  Lỗi 1: 404 Not Found
+  ─────────────────────
+  → Check API Gateway logs
+  → Verify routing in APIGateway/main.py
+  
+  Lỗi 2: CORS Error
+  ─────────────────────
+  → Rebuild API Gateway (có CORS middleware)
+  → Clear browser cache (Ctrl+Shift+R)
+  
+  Lỗi 3: SePay không redirect
+  ─────────────────────
+  → Check BACKEND_PUBLIC_URL trong .env
+  → Verify ngrok URL còn hoạt động
+  → Check logs: docker-compose logs billing_api | grep SePay
+  
+  Lỗi 4: Manager không thấy facilities
+  ─────────────────────
+  → Check user role trong database
+  → Check facility_managers table
+  
+  Lỗi 5: Ngrok warning page
+  ─────────────────────
+  → Verify header "ngrok-skip-browser-warning" được thêm
+  → Check apiClient.js và payment_handler.js
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📊 PORT MAPPING                                               │
+└──────────────────────────────────────────────────────────────┘
+
+  Service          Local Port    Container Port
+  ────────────────────────────────────────────────
+  Nginx            80            80
+  Auth             8001          8001
+  Billing          8002          8002
+  Booking          8003          8003
+  Court            8004          8004
+  Facility         8005          8005
+  Session          8006          8006
+  Notification     8007          8007
+  
+  Databases (MySQL):
+  ────────────────────────────────────────────────
+  auth_db          3306          3306
+  bill_db          3307          3306
+  booking_db       3308          3306
+  court_db         3309          3306
+  facility_db      3310          3306
+  session_db       3311          3306
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📁 KEY FILES                                                  │
+└──────────────────────────────────────────────────────────────┘
+
+  Config:
+  ───────
+  - Billing/core/.env              → Backend URLs, SePay credentials
+  - UI/Homepage/homepage.html      → Frontend config (window.CONFIG)
+  - docker-compose.yml             → Service definitions
+  - Nginx/nginx.conf               → Routing rules
+  
+  Code (Fixed):
+  ─────────────
+  - APIGateway/main.py             → API routing + CORS
+  - Billing/service/billing_service.py  → SePay return URLs
+  - UI/Homepage/apiClient.js       → API client with headers
+  - UI/Homepage/payment_handler.js → Payment flow
+  
+  Docs:
+  ─────
+  - FIX_ISSUES_GUIDE.md            → Detailed guide
+  - ISSUE_SUMMARY.md               → Problems analysis
+  - THIS FILE                      → Quick reference
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🎯 TESTING CHECKLIST                                          │
+└──────────────────────────────────────────────────────────────┘
+
+  Before Testing:
+  ───────────────
+  ☐ All containers running (docker-compose ps)
+  ☐ Ngrok running and URL updated
+  ☐ Services rebuilt (./rebuild_fixed_services.sh)
+  ☐ Browser cache cleared
+  
+  Manager View:
+  ─────────────
+  ☐ Login as manager
+  ☐ Navigate to "Quản Trị" tab
+  ☐ Select facility from dropdown
+  ☐ See list of courts
+  ☐ See list of bookings
+  ☐ Can create walk-in booking
+  
+  Customer View:
+  ──────────────
+  ☐ Login as customer
+  ☐ Navigate to "Đặt & Điều Phối" tab
+  ☐ Select facility and date
+  ☐ See booking grid/calendar
+  ☐ Can create new booking
+  
+  Payment:
+  ────────
+  ☐ Create booking
+  ☐ Click "Xác nhận đặt sân"
+  ☐ Redirect to SePay checkout
+  ☐ Complete payment
+  ☐ Redirect back to homepage
+  ☐ See success message
+  ☐ Booking status = confirmed
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 💡 PRO TIPS                                                   │
+└──────────────────────────────────────────────────────────────┘
+
+  1. Luôn kiểm tra logs trước khi rebuild:
+     docker-compose logs -f apigateway billing_api
+  
+  2. Clear browser cache khi test frontend:
+     Ctrl+Shift+R (Chrome) hoặc Cmd+Shift+R (Mac)
+  
+  3. Ngrok URL thay đổi mỗi khi restart:
+     Tạo alias để auto-update:
+     alias update-ngrok='./scripts/update_ngrok_url.sh'
+  
+  4. Monitor real-time logs:
+     docker-compose logs -f --tail=100 apigateway billing_api
+  
+  5. Test API trực tiếp với curl trước khi test từ UI
+  
+  6. Use Chrome DevTools Network tab để debug requests
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  Need help? Check:                                           ║
+║  - FIX_ISSUES_GUIDE.md (detailed steps)                      ║
+║  - ISSUE_SUMMARY.md (problem analysis)                       ║
+║  - docker-compose logs (runtime logs)                        ║
+╚══════════════════════════════════════════════════════════════╝

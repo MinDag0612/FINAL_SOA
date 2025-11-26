@@ -1,7 +1,7 @@
 
 const PaymentHandler = (() => {
-  const BACKEND_URL = window.CONFIG?.BACKEND_PUBLIC_URL ||
-                     window.location.origin.replace(/:\d+$/, '');
+  // CRITICAL: Must use window.CONFIG for ngrok URL, fallback to current origin
+  const BACKEND_URL = window.CONFIG?.BACKEND_PUBLIC_URL || window.location.origin;
 
   console.log('[PaymentHandler] Initialized with BACKEND_URL:', BACKEND_URL);
 
@@ -274,6 +274,7 @@ const PaymentHandler = (() => {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${jwt}`,
+            'ngrok-skip-browser-warning': 'true',  // Add ngrok bypass
           },
           body: JSON.stringify(payload),
         }

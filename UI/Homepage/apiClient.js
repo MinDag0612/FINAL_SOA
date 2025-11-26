@@ -53,6 +53,9 @@
     if (auth.token) {
       headers.set("Authorization", `Bearer ${auth.token}`);
     }
+    
+    // Add ngrok bypass header
+    headers.set("ngrok-skip-browser-warning", "true");
 
     if (forceRefresh) {
       headers.set("Cache-Control", "no-cache");
@@ -100,10 +103,25 @@
         if (!facilityId) return [];
         try {
           const res = await request(`/court/manager/${facilityId}/courts`);
-          return res?.data || res || [];
+          console.log("[API] Courts raw response:", res);
+          
+          // Extract courts array from response
+          let courts = [];
+          if (Array.isArray(res)) {
+            courts = res;
+          } else if (res?.data?.courts && Array.isArray(res.data.courts)) {
+            courts = res.data.courts;
+          } else if (res?.data && Array.isArray(res.data)) {
+            courts = res.data;
+          } else if (res?.courts && Array.isArray(res.courts)) {
+            courts = res.courts;
+          }
+          
+          console.log("[API] Extracted courts:", courts.length, "courts");
+          return courts;
         } catch (err) {
           console.error("Manager court list error:", err);
-          throw err;
+          return []; // Return empty array instead of throwing
         }
       },
     },
@@ -165,10 +183,12 @@
           const res = await request(
             `/booking/manager/${facilityId}/bookings${queryString ? `?${queryString}` : ""}`
           );
-          return res?.data || res || [];
+          const bookings = res?.data || res || [];
+          console.log("[API] Bookings response:", bookings, "isArray:", Array.isArray(bookings));
+          return Array.isArray(bookings) ? bookings : [];
         } catch (err) {
           console.error("Manager booking list error:", err);
-          throw err;
+          return []; // Return empty array instead of throwing
         }
       },
       cancel: async (bookingId, payload) => {
@@ -196,10 +216,13 @@
       managerList: async () => {
         try {
           const res = await request("/facility/manager/facilities");
-          return res?.data || res || [];
+          console.log("[API] Manager facilities response:", res);
+          const facilities = res?.data || res || [];
+          console.log("[API] Extracted facilities:", facilities, "isArray:", Array.isArray(facilities));
+          return Array.isArray(facilities) ? facilities : [];
         } catch (err) {
           console.error("Manager facility list error:", err);
-          throw err;
+          return []; // Return empty array on error instead of throwing
         }
       },
     },
@@ -215,7 +238,7 @@
       },
       createInvoice: async (payload) => {
         try {
-          const res = await request("/billing", {
+          const res = await request("/billing/", {
             method: "POST",
             body: JSON.stringify(payload),
           });
@@ -263,6 +286,60 @@
     auth: {
       redirectToLogin: () => {
         window.location.href = LOGIN_PAGE;
+      },
+    },
+    notification: {
+      sendEmailVerify: async (userPayload) => {
+        try {
+          const res = await request("/notification/send-email-verify-register", {
+            method: "POST",
+            body: JSON.stringify(userPayload),
+          });
+          return res?.data || res;
+        } catch (err) {
+          console.error("Send email verify error:", err);
+          throw err;
+        }
+      },
+      sendBookingConfirmed: async (bookingInfo) => {
+        try {
+          const res = await request("/notification/send-booking-confirmed", {
+            method: "POST",
+            body: JSON.stringify(bookingInfo),
+          });
+          return res?.data || res;
+        } catch (err) {
+          console.error("Send booking confirmed error:", err);
+          throw err;
+        }
+      },
+    },
+    report: {
+      getPlaytimePlot: async (courtId) => {
+        try {
+          // This returns an image, not JSON
+          const auth = getAuth();
+          const headers = new Headers();
+          if (auth.token) {
+            headers.set("Authorization", `Bearer ${auth.token}`);
+          }
+          headers.set("ngrok-skip-browser-warning", "true");
+          
+          const resp = await fetch(`${DEFAULT_BASE}/report/manager/report-playtime-plot/court=${courtId}`, {
+            headers,
+          });
+          
+          if (!resp.ok) {
+            throw new Error(`Failed to fetch playtime plot: ${resp.status}`);
+          }
+          
+          // Return blob URL for image
+          const blob = await resp.blob();
+          return URL.createObjectURL(blob);
+        } catch (err) {
+          console.error("Get playtime plot error:", err);
+          throw err;
+        }
       },
     },
   };

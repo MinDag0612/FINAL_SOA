@@ -112,7 +112,8 @@ const ManagerBooking = (() => {
   };
 
   const renderWalkInForm = (courts) => {
-    const today = new Date().toISOString().split('T')[0];
+    // Use manager selected date, fallback to today
+    const selectedDate = window.state?.managerDate || new Date().toISOString().split('T')[0];
     
     return `
       <div class="walkin-form">
@@ -139,7 +140,7 @@ const ManagerBooking = (() => {
           </div>
           <div class="form-group">
             <label>Ngày *</label>
-            <input type="date" id="walkin-date" value="${today}" />
+            <input type="date" id="walkin-date" value="${selectedDate}" />
           </div>
           <div class="form-group">
             <label>Giờ Bắt Đầu *</label>
@@ -219,13 +220,20 @@ const ManagerBooking = (() => {
 
       console.log("[submitWalkIn] Booking created:", res.data);
       
-      showToast("Booking tại chỗ tạo thành công!");
+      window.showToast("Booking tại chỗ tạo thành công!");
       resetWalkInForm();
       
+      console.log("[submitWalkIn] Refreshing manager view...");
       if (typeof window.refreshManagerView === "function") {
+        console.log("[submitWalkIn] Calling window.refreshManagerView");
         await window.refreshManagerView();
+        console.log("[submitWalkIn] Refresh completed");
       } else if (typeof window.refreshManagerBookings === "function") {
+        console.log("[submitWalkIn] Calling window.refreshManagerBookings");
         await window.refreshManagerBookings();
+        console.log("[submitWalkIn] Refresh completed");
+      } else {
+        console.error("[submitWalkIn] No refresh function available!");
       }
     } catch (err) {
       console.error("[submitWalkIn] Error:", err);
@@ -257,12 +265,15 @@ const ManagerBooking = (() => {
 
       console.log("[deleteBooking] Result:", res);
       
-      showToast("Booking đã được hủy!");
+      window.showToast("Booking đã được hủy!");
 
+      console.log("[deleteBooking] Refreshing manager view...");
       if (typeof window.refreshManagerView === "function") {
         await window.refreshManagerView();
       } else if (typeof window.refreshManagerBookings === "function") {
         await window.refreshManagerBookings();
+      } else {
+        console.error("[deleteBooking] No refresh function available!");
       }
     } catch (err) {
       console.error("[deleteBooking] Error:", err);

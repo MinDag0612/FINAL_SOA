@@ -1,8 +1,12 @@
 from typing import List
+import logging
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from Facility.models.facility_models import Facility, FacilityCreate, FacilityUpdate
 from Facility.repository.facility_repository import FacilityRepository
+
+logger = logging.getLogger(__name__)
 
 
 class FacilityService:
@@ -43,14 +47,17 @@ class FacilityService:
             # Fallback: if no facilities found for this manager, return all facilities
             # This allows testing even if user_id doesn't match in database
             if not facilities:
-                print(f"[Warning] No facilities found for manager_id={manager_id}, returning all facilities as fallback")
+                logger.warning(f"No facilities found for manager_id={manager_id}, returning all facilities as fallback")
                 facilities = self.list_facilities()
             return facilities
-        except HTTPException:
-            raise
-        except ValueError:
+        except ValueError as e:
+            logger.error(f"Invalid manager ID: {e}")
             raise HTTPException(status_code=400, detail="Invalid manager ID")
+        except SQLAlchemyError as e:
+            logger.error(f"Database error: {e}")
+            raise HTTPException(status_code=500, detail="Database operation failed")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+            logger.error(f"Unexpected error: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
         
 

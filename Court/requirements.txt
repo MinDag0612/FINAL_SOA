@@ -1,18 +1,13 @@
 fastapi==0.121.2
 pwdlib==0.3.0
+pwdlib[argon2]
+pwdlib[bcrypt]
 pydantic==2.12.4
 python_jose==3.5.0
 SQLAlchemy==2.0.44
 uvicorn
-pwdlib[argon2]
 pymysql
+bcrypt
 cryptography
-<<<<<<< HEAD
 alembic==1.13.2
-=======
-<<<<<<< HEAD
 requests
-=======
-alembic==1.13.2
->>>>>>> 2f647f178b4616b6ce97b54de11a0468833f0cbb
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3

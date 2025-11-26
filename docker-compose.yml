@@ -118,24 +118,6 @@ services:
 
 
   # =====================
-  # SESSION DB
-  # =====================
-  session_db:
-    image: mysql:8.0
-    container_name: session_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: DB_SESSION
-    volumes:
-      - ./Session/core/session_db.sql:/docker-entrypoint-initdb.d/init.sql
-      - session_data:/var/lib/mysql
-    ports:
-    - "3311:3306"
-    networks:
-      - backend
-
-  # =====================
   # AUTH API
   # =====================
   auth_api:
@@ -267,32 +249,6 @@ services:
 
 
   # =====================
-  # SESSION API
-  # =====================
-  session_api:
-    build:
-      context: ./
-      dockerfile: Session/dockerfile
-    container_name: session_service
-    restart: always
-    depends_on:
-      - session_db
-      - kafka
-    environment:
-      DB_HOST: session_db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: DB_SESSION
-    ports:
-      - "8006:8006"
-    volumes:
-      - ./:/app
-      - ./jwt_shared:/app/jwt_shared
-    networks:
-      - backend
-
-  # =====================
   # NOTIFICATION SERVICE
   # =====================
   notification_api:
@@ -308,8 +264,6 @@ services:
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
-<<<<<<< HEAD
-=======
     networks:
       - backend
 
@@ -329,7 +283,6 @@ services:
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
     networks:
       - backend
 
@@ -371,4 +324,3 @@ volumes:
   court_data:
   facility_data:
   booking_data:
-  session_data:

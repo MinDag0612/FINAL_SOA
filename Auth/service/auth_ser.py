@@ -35,9 +35,7 @@ class AuthService:
                 raise Exception("User with this email already exists")
             
             pass_hashed = self.jwt_service.get_hash(user.password)
-            new_user = user.copy()
-            pass_hashed = self.jwt_service.get_hash(user.password)
-            self.repo.insert_user(new_user, pass_hashed)
+            self.repo.insert_user(user, pass_hashed)
             return {"status": "success", "message": "User created successfully"}
         except Exception as e:
             raise Exception(f"{e} -- from auth service")

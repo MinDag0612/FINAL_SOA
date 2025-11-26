@@ -6,6 +6,8 @@ const ManagerCourts = (() => {
   };
 
   const renderCourtsSection = (courts, bookings, selectedDate) => {
+    console.log("[ManagerCourts.renderCourtsSection] courts:", courts.length, "bookings:", bookings.length);
+    
     if (!courts || courts.length === 0) {
       return `
         <div class="empty-state">
@@ -33,6 +35,9 @@ const ManagerCourts = (() => {
 
     courts.forEach(court => {
       const courtBookings = bookings.filter(b => b.courtId === court.id || b.court_id === court.id);
+      if (courtBookings.length > 0) {
+        console.log(`[ManagerCourts] Court ${court.name} (id=${court.id}) has ${courtBookings.length} bookings:`, courtBookings);
+      }
       
       const bookedSlots = new Set();
       courtBookings.forEach(booking => {
