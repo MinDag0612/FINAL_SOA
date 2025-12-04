@@ -25,3 +25,18 @@ ORDER BY
     c.court_id, p.price_id;
 ------------------------
 lấy giá theo id sân ngày thứ 7 chủ nhật
+
+---------------------------
+USE DB_COURT;
+
+UPDATE Hours h
+JOIN Price p ON h.price_id = p.price_id
+SET 
+    h.start = '16:00',
+    h.end   = '22:00'
+WHERE 
+    p.court_id = 1
+    AND h.start >= '16:00';
+
+---------------
+Đổi khung giờ bắt đầu
