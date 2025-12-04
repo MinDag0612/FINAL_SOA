@@ -3,7 +3,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy requirements trước để tận dụng cache
-COPY ./Session/requirements.txt .
+COPY ./Report/requirements.txt /app/requirements.txt
+
 
 # Cài đặt các dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt

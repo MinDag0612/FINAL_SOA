@@ -308,8 +308,6 @@ services:
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
-<<<<<<< HEAD
-=======
     networks:
       - backend
 
@@ -329,7 +327,6 @@ services:
     volumes:
       - ./:/app
       - ./jwt_shared:/app/jwt_shared
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
     networks:
       - backend
 
