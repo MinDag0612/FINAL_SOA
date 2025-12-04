@@ -11,19 +11,9 @@ import json
 
 
 class NotificationService:
-    """Stub notification service."""
-    url = {
-        "auth": "http://auth_service:8001"
-    }
 
     def __init__(self):
-        self._log = NotificationLog(
-            notification_id=1,
-            user_email="demo@example.com",
-            channel="email",
-            status="sent",
-            sent_at="2024-06-20T08:00:00Z",
-        )
+        pass
         
     @staticmethod
     def send_email_verify_register(user: dict):
@@ -45,27 +35,40 @@ class NotificationService:
     @staticmethod
     def booking_confirmed(data: dict) -> dict:
         try:
+            user_email = data.get("user_email") or data.get("email")
+            if not user_email:
+                raise ValueError("Missing user_email or email field")
+            
+            booking_id = data.get("booking_id", "N/A")
+            court_name = data.get("court_name", "N/A")
+            scheduled_time = data.get("scheduled_time", "N/A")
+            
             content = f"""
-                    Your booking is confirmed!
+Xin chào,
 
-                    Booking information:
-                    {data}
+Booking của bạn đã được xác nhận thành công!
 
-                    Please complete your payment in 10 minutes to secure your reservation.
-                    Thank you for choosing our service.
-                    """
+Thông tin booking:
+- Mã booking: #{booking_id}
+- Sân: {court_name}
+- Thời gian: {scheduled_time}
+
+Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!
+
+---
+BSport - Hệ thống đặt sân Badminton
+"""
 
             send_email_v1(
-                recipient=data["email"],
-                subject="Booking Confirmed - Your Reservation is Successful!",
+                recipient=user_email,
+                subject="[BSport] Xác nhận đặt sân thành công",
                 content=content,
             )
 
             return {
                 "status": "sent",
-                "recipients": data["email"],
+                "recipients": user_email,
                 "message": "Email xác nhận đã được gửi.",
-                "payload_received": data.__dict__
             }
         except Exception as e:
             raise Exception("Lỗi khi gửi email xác nhận booking: " + str(e) + " -- from notification service")

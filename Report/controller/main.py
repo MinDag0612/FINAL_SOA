@@ -11,7 +11,7 @@ from Report.service.report_service import ReportService
 import matplotlib.pyplot as plt
 import io
 from fastapi.responses import StreamingResponse
-from jwt_shared.jwt import jwt_services
+from jwt_shared.dependencies import get_current_user
 
 app = FastAPI()
 
@@ -19,30 +19,18 @@ app = FastAPI()
 def get_service() -> ReportService:
     return ReportService()
 
-jwt_services = jwt_services()
-
-
-def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
-    try:
-        payload = jwt_services.decode_access_token(token)
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return payload
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
 
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "report"}
 
 
-@app.get("/manager/report-playtime-plot/court={court_id}")
+@app.get("/report/manager/report-playtime-plot/court={court_id}")
 def get_plot(
     court_id: int,
     service: "ReportService" = Depends(get_service),
-    token: str = Header(None, alias="Authorization")
+    token: str = Header(None, alias="Authorization"),
+    user: dict = Depends(get_current_user),
 ):
     try:
         # Lấy dữ liệu: dict {day: total_hours}

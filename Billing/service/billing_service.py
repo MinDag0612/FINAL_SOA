@@ -178,7 +178,7 @@ class BillingService:
                 "invoice_id": invoice_id,
                 "status": status,
                 "message": message,
-                "redirect_url": f"/customer.html?payment=failed&reason={reason}{redirect_booking}",
+                "redirect_url": f"/ui/Homepage/homepage.html?payment=failed&reason={reason}{redirect_booking}",
             }
 
         # Payment successful
@@ -205,7 +205,7 @@ class BillingService:
             "transaction_id": transaction_id,
             "status": "success",
             "message": message or "Payment successful",
-            "redirect_url": f"/customer.html?payment=success{redirect_booking}",
+            "redirect_url": f"/ui/Homepage/homepage.html?payment=success{redirect_booking}",
         }
 
     def handle_sepay_ipn(self, payload: Dict) -> dict:

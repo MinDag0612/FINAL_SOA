@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 
 
@@ -13,8 +14,8 @@ class jwt_services:
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
-    # Password Hashing
-    pwd_context = PasswordHash.recommended()
+    # Password Hashing - Use bcrypt to support existing hashes
+    pwd_context = PasswordHash((BcryptHasher(),))
 
     # OAuth2 Scheme
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8001/token")

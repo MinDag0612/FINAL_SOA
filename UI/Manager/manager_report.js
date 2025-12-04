@@ -10,6 +10,8 @@
  */
 
 const ManagerReport = (() => {
+  let currentView = 'charts'; // 'charts' hoặc 'revenue'
+
   /**
    * Tính doanh thu theo sân trong khoảng thời gian
    * @param {Array} bookings - Danh sách booking
@@ -36,6 +38,12 @@ const ManagerReport = (() => {
     });
 
     (bookings || []).forEach(booking => {
+      // Only count confirmed/completed bookings for revenue report
+      const status = booking.status || booking.uiStatus;
+      if (status === 'cancelled' || status === 'pending') {
+        return; // Skip cancelled and pending bookings
+      }
+
       const bookingStart = new Date(booking.start_time || booking.start);
       const bookingEnd = new Date(booking.end_time || booking.end);
 
@@ -71,6 +79,7 @@ const ManagerReport = (() => {
    * @returns {string} HTML
    */
   const renderDateRangeFilter = (startDate, endDate) => {
+    const buttonText = currentView === 'charts' ? 'Xem Doanh Thu' : 'Xem Biểu Đồ';
     return `
       <div class="report-filter">
         <div class="form-group">
@@ -81,7 +90,7 @@ const ManagerReport = (() => {
           <label>Đến Ngày</label>
           <input type="date" id="report-end-date" value="${endDate}" />
         </div>
-        <button class="btn-primary" onclick="ManagerReport.updateReport()">Xem Report</button>
+        <button class="btn-primary" onclick="ManagerReport.toggleView()" style="margin: 0 auto; display: block;">${buttonText}</button>
       </div>
     `;
   };
@@ -128,7 +137,7 @@ const ManagerReport = (() => {
         </div>
         <div class="summary-card">
           <div class="label">Tổng Doanh Thu</div>
-          <div class="value">${formatCurrency(totalRevenue)}</div>
+          <div class="value">${window.formatCurrency(totalRevenue)}</div>
         </div>
       </div>
 
@@ -156,7 +165,7 @@ const ManagerReport = (() => {
           <td><strong>${row.courtName}</strong></td>
           <td>${row.bookingCount}</td>
           <td>${row.totalHours.toFixed(1)}h</td>
-          <td>${formatCurrency(row.totalRevenue)}</td>
+          <td>${window.formatCurrency(row.totalRevenue)}</td>
           <td>${avgHours}h</td>
           <td>${percentage}%</td>
         </tr>
@@ -170,6 +179,95 @@ const ManagerReport = (() => {
     `;
 
     return html;
+  };
+
+  /**
+   * Toggle giữa charts view và revenue view
+   */
+  const toggleView = async () => {
+    if (currentView === 'charts') {
+      // Switch to revenue view
+      currentView = 'revenue';
+      await loadRevenueView();
+    } else {
+      // Switch back to charts view
+      currentView = 'charts';
+      await loadChartsView();
+    }
+  };
+
+  /**
+   * Load revenue view
+   */
+  const loadRevenueView = async () => {
+    const startDate = document.getElementById("report-start-date")?.value;
+    const endDate = document.getElementById("report-end-date")?.value;
+
+    if (!startDate || !endDate) {
+      alert("Vui lòng chọn khoảng thời gian");
+      return;
+    }
+
+    try {
+      const facilityId = state?.managerFacilityId;
+      if (!facilityId) return;
+
+      const bookings = await window.api.booking.managerList(facilityId);
+      const courts = await window.api.court.listByFacility(facilityId);
+      const normalized = (bookings || []).map(normalizeBooking);
+      const courtList = (courts || []).map(mapCourt);
+
+      const reportData = ManagerReport.calculateRevenueByCourtId(normalized, courtList, startDate, endDate);
+      const dateRange = `${new Date(startDate).toLocaleDateString('vi-VN')} - ${new Date(endDate).toLocaleDateString('vi-VN')}`;
+
+      const reportHtml = ManagerReport.renderReportTable(reportData, dateRange);
+      const reportContainer = document.getElementById("report-container");
+      if (reportContainer) {
+        reportContainer.innerHTML = reportHtml;
+      }
+
+      // Update button text
+      const filterContainer = document.getElementById("reports-filter");
+      if (filterContainer) {
+        filterContainer.innerHTML = ManagerReport.renderDateRangeFilter(startDate, endDate);
+      }
+    } catch (err) {
+      console.error("[loadRevenueView] Error:", err);
+      alert("Lỗi load báo cáo: " + err.message);
+    }
+  };
+
+  /**
+   * Load charts view
+   */
+  const loadChartsView = async () => {
+    try {
+      const facilityId = state?.managerFacilityId;
+      if (!facilityId) return;
+
+      const courts = await window.api.court.listByFacility(facilityId);
+      const courtList = (courts || []).map(mapCourt);
+      const bookings = await window.api.booking.managerList(facilityId);
+      const normalized = (bookings || []).map(normalizeBooking);
+
+      const usageStatsHtml = window.ManagerReportCharts?.renderUsageStats(normalized, courtList) || '';
+
+      const reportContainer = document.getElementById("report-container");
+      if (reportContainer) {
+        reportContainer.innerHTML = usageStatsHtml;
+      }
+
+      // Update button text
+      const startDate = document.getElementById("report-start-date")?.value;
+      const endDate = document.getElementById("report-end-date")?.value;
+      const filterContainer = document.getElementById("reports-filter");
+      if (filterContainer && startDate && endDate) {
+        filterContainer.innerHTML = ManagerReport.renderDateRangeFilter(startDate, endDate);
+      }
+    } catch (err) {
+      console.error("[loadChartsView] Error:", err);
+      alert("Lỗi load biểu đồ: " + err.message);
+    }
   };
 
   /**
@@ -235,6 +333,9 @@ const ManagerReport = (() => {
     renderDateRangeFilter,
     renderReportTable,
     updateReport,
+    toggleView,
+    loadRevenueView,
+    loadChartsView,
     exportToCSV,
   };
 })();

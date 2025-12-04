@@ -6,6 +6,8 @@ const ManagerCourts = (() => {
   };
 
   const renderCourtsSection = (courts, bookings, selectedDate) => {
+    console.log("[ManagerCourts.renderCourtsSection] courts:", courts.length, "bookings:", bookings.length);
+    
     if (!courts || courts.length === 0) {
       return `
         <div class="empty-state">
@@ -33,6 +35,9 @@ const ManagerCourts = (() => {
 
     courts.forEach(court => {
       const courtBookings = bookings.filter(b => b.courtId === court.id || b.court_id === court.id);
+      if (courtBookings.length > 0) {
+        console.log(`[ManagerCourts] Court ${court.name} (id=${court.id}) has ${courtBookings.length} bookings:`, courtBookings);
+      }
       
       const bookedSlots = new Set();
       courtBookings.forEach(booking => {
@@ -60,7 +65,7 @@ const ManagerCourts = (() => {
         <tr>
           <td><strong>${court.name || court.courtName}</strong></td>
           <td>${court.type || court.surface_type || '--'}</td>
-          <td>${formatCurrency(court.hourly_rate || court.price || 100000)}</td>
+          <td>${window.formatCurrency(court.hourly_rate || court.price || 100000)}</td>
           <td>${timelineHtml}</td>
         </tr>
       `;
@@ -113,7 +118,7 @@ const ManagerCourts = (() => {
     return `
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-icon">📍</div>
+          <div class="stat-icon"><i class="fa-solid fa-map-marker-alt"></i></div>
           <div class="stat-content">
             <div class="stat-label">Tổng Sân</div>
             <div class="stat-value">${totalCourts}</div>
@@ -127,7 +132,7 @@ const ManagerCourts = (() => {
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">⏱️</div>
+          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
           <div class="stat-content">
             <div class="stat-label">Tổng Giờ Đặt</div>
             <div class="stat-value">${totalHours.toFixed(1)}h</div>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Integration Tests</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 0;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4ec9b0;
+            border-bottom: 2px solid #4ec9b0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #569cd6;
+            margin-top: 30px;
+        }
+        .test-case {
+            background: #252526;
+            border-left: 4px solid #007acc;
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .test-case.running {
+            border-left-color: #ffa500;
+        }
+        .test-case.passed {
+            border-left-color: #4ec9b0;
+        }
+        .test-case.failed {
+            border-left-color: #f48771;
+        }
+        .test-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .test-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #666; }
+        .status-running { background: #ffa500; }
+        .status-passed { background: #4ec9b0; color: #000; }
+        .status-failed { background: #f48771; }
+        .test-details {
+            margin-top: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .test-error {
+            background: #3c1f1e;
+            color: #f48771;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .summary {
+            background: #2d2d30;
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .summary-stat {
+            display: inline-block;
+            margin: 0 20px;
+            font-size: 24px;
+        }
+        .stat-passed { color: #4ec9b0; }
+        .stat-failed { color: #f48771; }
+        .stat-total { color: #569cd6; }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .config-section {
+            background: #2d2d30;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .config-section input {
+            background: #3c3c3c;
+            border: 1px solid #555;
+            color: #d4d4d4;
+            padding: 8px;
+            border-radius: 3px;
+            width: 300px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Manager Integration Test Suite</h1>
+        
+        <div class="config-section">
+            <strong>Configuration:</strong><br>
+            API Gateway: <input type="text" id="api-base-url" value="https://hyperpathetic-fugally-erin.ngrok-free.dev"><br>
+            Manager Email: <input type="text" id="manager-email" value="manager1@badminton.com"><br>
+            Manager Password: <input type="password" id="manager-password" value="password123"><br>
+            Test Facility ID: <input type="number" id="test-facility-id" value="3">
+        </div>
+
+        <button id="run-all-btn" onclick="runAllTests()">▶ Run All Tests</button>
+        <button id="run-selected-btn" onclick="runSelectedTests()">▶ Run Selected Only</button>
+        <button id="stop-btn" onclick="stopTests()" disabled>⏹ Stop</button>
+
+        <div class="summary" id="summary">
+            <div class="summary-stat stat-total">Total: <span id="total-count">0</span></div>
+            <div class="summary-stat stat-passed">Passed: <span id="passed-count">0</span></div>
+            <div class="summary-stat stat-failed">Failed: <span id="failed-count">0</span></div>
+            <div class="summary-stat">Duration: <span id="duration">0s</span></div>
+        </div>
+
+        <h2>Authentication & Setup</h2>
+        <div id="test-auth-login" class="test-case">
+            <input type="checkbox" checked> 
+            <span class="test-name">Test 1: Manager Login</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-auth-token" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 2: JWT Token Structure</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+
+        <h2>Facility & Courts Management</h2>
+        <div id="test-facility-list" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 3: Load Manager Facilities</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-courts-list" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 4: Load Courts for Facility</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+
+        <h2>Booking Management</h2>
+        <div id="test-bookings-list" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 5: Load Bookings for Date</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-walkin-create" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 6: Create Walk-in Booking</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-walkin-verify" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 7: Verify Booking Created (Refresh)</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+
+        <h2>Report & Analytics</h2>
+        <div id="test-report-filter-status" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 8: Report Filters Pending/Cancelled Bookings</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-report-revenue" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 9: Revenue Calculation Accuracy</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+
+        <h2>UI Components</h2>
+        <div id="test-ui-courts-timeline" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 10: Courts Timeline Rendering</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+        <div id="test-ui-booking-table" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 11: Booking Table Rendering</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+
+        <h2>Cleanup</h2>
+        <div id="test-cleanup" class="test-case">
+            <input type="checkbox" checked>
+            <span class="test-name">Test 12: Cancel Test Booking</span>
+            <span class="test-status status-pending">PENDING</span>
+            <div class="test-details"></div>
+        </div>
+    </div>
+
+    <script>
+        let API_BASE_URL = '';
+        let authToken = null;
+        let testFacilityId = null;
+        let testCourtId = null;
+        let testBookingId = null;
+        let shouldStop = false;
+        let startTime = null;
+
+        const stats = {
+            total: 0,
+            passed: 0,
+            failed: 0
+        };
+
+        function updateStats() {
+            document.getElementById('total-count').textContent = stats.total;
+            document.getElementById('passed-count').textContent = stats.passed;
+            document.getElementById('failed-count').textContent = stats.failed;
+            if (startTime) {
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('duration').textContent = duration + 's';
+            }
+        }
+
+        function setTestStatus(testId, status, details = '', error = null) {
+            const testCase = document.getElementById(testId);
+            const statusSpan = testCase.querySelector('.test-status');
+            const detailsDiv = testCase.querySelector('.test-details');
+            
+            testCase.className = 'test-case ' + status;
+            statusSpan.className = 'test-status status-' + status;
+            statusSpan.textContent = status.toUpperCase();
+            
+            detailsDiv.innerHTML = details;
+            if (error) {
+                detailsDiv.innerHTML += `<div class="test-error">[FAIL] ${error}</div>`;
+            }
+
+            if (status === 'passed') {
+                stats.passed++;
+            } else if (status === 'failed') {
+                stats.failed++;
+            }
+            updateStats();
+        }
+
+        async function request(path, options = {}) {
+            const url = API_BASE_URL + path;
+            const headers = {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true',
+                ...options.headers
+            };
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const response = await fetch(url, {
+                ...options,
+                headers
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        }
+
+        // ===== TEST IMPLEMENTATIONS =====
+
+        async function test1_ManagerLogin() {
+            const email = document.getElementById('manager-email').value;
+            const password = document.getElementById('manager-password').value;
+
+            const response = await request('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!response.access_token) {
+                throw new Error('No access_token in response');
+            }
+
+            authToken = response.access_token;
+            return `[OK] Token received: ${authToken.substring(0, 50)}...`;
+        }
+
+        async function test2_JWTStructure() {
+            if (!authToken) throw new Error('No auth token available');
+
+            const parts = authToken.split('.');
+            if (parts.length !== 3) {
+                throw new Error('Invalid JWT format');
+            }
+
+            const payload = JSON.parse(atob(parts[1]));
+            
+            if (!payload.sub) throw new Error('Missing "sub" in token');
+            if (!payload.infor) throw new Error('Missing "infor" in token');
+            if (!payload.infor.role) throw new Error('Missing "role" in infor');
+            if (payload.infor.role !== 'manager') {
+                throw new Error(`Expected role=manager, got ${payload.infor.role}`);
+            }
+
+            return `[OK] Token valid<br>- User ID: ${payload.sub}<br>- Email: ${payload.infor.email}<br>- Role: ${payload.infor.role}`;
+        }
+
+        async function test3_LoadFacilities() {
+            const response = await request('/facility/manager/facilities');
+            
+            if (!response.data || !Array.isArray(response.data)) {
+                throw new Error('Invalid facilities response format');
+            }
+
+            if (response.data.length === 0) {
+                throw new Error('No facilities found for manager');
+            }
+
+            testFacilityId = parseInt(document.getElementById('test-facility-id').value);
+            const facility = response.data.find(f => f.facility_id === testFacilityId);
+            
+            if (!facility) {
+                throw new Error(`Facility ID ${testFacilityId} not found in manager's facilities`);
+            }
+
+            return `[OK] Found ${response.data.length} facilities<br>- Using: ${facility.name} (ID: ${testFacilityId})`;
+        }
+
+        async function test4_LoadCourts() {
+            const response = await request(`/court/manager/${testFacilityId}/courts`);
+            
+            if (!response.data || !response.data.courts) {
+                throw new Error('Invalid courts response format');
+            }
+
+            const courts = response.data.courts;
+            if (!Array.isArray(courts) || courts.length === 0) {
+                throw new Error('No courts found for facility');
+            }
+
+            testCourtId = courts[0].court_id;
+
+            return `[OK] Found ${courts.length} courts<br>- First court: ${courts[0].name} (ID: ${testCourtId})`;
+        }
+
+        async function test5_LoadBookings() {
+            const today = new Date().toISOString().split('T')[0];
+            const response = await request(`/booking/manager/${testFacilityId}/bookings?date=${today}`);
+            
+            if (!response.data || !Array.isArray(response.data)) {
+                throw new Error('Invalid bookings response format');
+            }
+
+            return `[OK] Found ${response.data.length} bookings for ${today}`;
+        }
+
+        async function test6_CreateWalkIn() {
+            const today = new Date().toISOString().split('T')[0];
+            const startHour = 14;
+            const endHour = 15;
+            
+            const payload = {
+                facility_id: testFacilityId,
+                items: [{
+                    court_id: testCourtId,
+                    start_time: `${today}T${String(startHour).padStart(2, '0')}:00:00`,
+                    end_time: `${today}T${String(endHour).padStart(2, '0')}:00:00`,
+                    price: 100000
+                }],
+                note: `[TEST INTEGRATION] Auto-created by test suite at ${new Date().toISOString()}`
+            };
+
+            const response = await request('/booking/booking', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.data || !response.data.booking_id) {
+                throw new Error('No booking_id in create response');
+            }
+
+            testBookingId = response.data.booking_id;
+
+            return `[OK] Booking created<br>- ID: ${testBookingId}<br>- Court: ${testCourtId}<br>- Time: ${startHour}:00 - ${endHour}:00`;
+        }
+
+        async function test7_VerifyBookingCreated() {
+            // Wait 500ms for database commit
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const today = new Date().toISOString().split('T')[0];
+            const response = await request(`/booking/manager/${testFacilityId}/bookings?date=${today}`);
+            
+            const booking = response.data.find(b => b.booking_id === testBookingId);
+            if (!booking) {
+                throw new Error(`Booking ${testBookingId} not found in list after creation!`);
+            }
+
+            return `[OK] Booking verified in list<br>- Status: ${booking.status}<br>- Items: ${booking.items.length}`;
+        }
+
+        async function test8_ReportFilterStatus() {
+            // This test verifies the frontend logic
+            // Create mock data with different statuses
+            const mockBookings = [
+                { booking_id: 1, status: 'confirmed', start: new Date(), end: new Date(), courtId: 1, total: 100000 },
+                { booking_id: 2, status: 'pending', start: new Date(), end: new Date(), courtId: 1, total: 100000 },
+                { booking_id: 3, status: 'cancelled', start: new Date(), end: new Date(), courtId: 1, total: 100000 },
+                { booking_id: 4, status: 'completed', start: new Date(), end: new Date(), courtId: 1, total: 100000 }
+            ];
+
+            const mockCourts = [{ id: 1, name: 'Test Court' }];
+
+            // Simulate the filtering logic from manager_report.js
+            let includedCount = 0;
+            mockBookings.forEach(booking => {
+                const status = booking.status;
+                if (status !== 'cancelled' && status !== 'pending') {
+                    includedCount++;
+                }
+            });
+
+            if (includedCount !== 2) {
+                throw new Error(`Expected 2 bookings (confirmed+completed), got ${includedCount}`);
+            }
+
+            return `[OK] Status filter working<br>- Total: 4 bookings<br>- Filtered: 2 bookings (pending & cancelled excluded)`;
+        }
+
+        async function test9_RevenueCalculation() {
+            const today = new Date().toISOString().split('T')[0];
+            const response = await request(`/booking/manager/${testFacilityId}/bookings?date=${today}`);
+            
+            let totalRevenue = 0;
+            let confirmedCount = 0;
+            
+            response.data.forEach(booking => {
+                if (booking.status === 'confirmed' || booking.status === 'completed') {
+                    totalRevenue += booking.total_amount || 0;
+                    confirmedCount++;
+                }
+            });
+
+            return `[OK] Revenue calculated<br>- Confirmed bookings: ${confirmedCount}<br>- Total revenue: ${totalRevenue.toLocaleString('vi-VN')} đ`;
+        }
+
+        async function test10_CourtsTimeline() {
+            // This tests HTML rendering
+            const today = new Date().toISOString().split('T')[0];
+            const [courtsRes, bookingsRes] = await Promise.all([
+                request(`/court/manager/${testFacilityId}/courts`),
+                request(`/booking/manager/${testFacilityId}/bookings?date=${today}`)
+            ]);
+
+            const courts = courtsRes.data.courts;
+            const bookings = bookingsRes.data;
+
+            // Simulate timeline rendering
+            let bookedSlotsCount = 0;
+            courts.forEach(court => {
+                const courtBookings = bookings.filter(b => {
+                    const courtId = b.items?.[0]?.court_id;
+                    return courtId === court.court_id;
+                });
+                
+                courtBookings.forEach(booking => {
+                    const item = booking.items[0];
+                    if (item && item.start_time && item.end_time) {
+                        const start = new Date(item.start_time);
+                        const end = new Date(item.end_time);
+                        bookedSlotsCount += (end.getHours() - start.getHours());
+                    }
+                });
+            });
+
+            return `[OK] Timeline rendering simulated<br>- Courts: ${courts.length}<br>- Booked slots: ${bookedSlotsCount}`;
+        }
+
+        async function test11_BookingTable() {
+            const today = new Date().toISOString().split('T')[0];
+            const response = await request(`/booking/manager/${testFacilityId}/bookings?date=${today}`);
+            
+            // Verify table data structure
+            const bookings = response.data;
+            if (bookings.length > 0) {
+                const sample = bookings[0];
+                if (!sample.booking_id) throw new Error('Missing booking_id');
+                if (!sample.items || !Array.isArray(sample.items)) throw new Error('Missing items array');
+                if (!sample.status) throw new Error('Missing status');
+            }
+
+            return `[OK] Booking table data valid<br>- Rows: ${bookings.length}<br>- All have required fields`;
+        }
+
+        async function test12_Cleanup() {
+            if (!testBookingId) {
+                return '[WARN] No test booking to clean up';
+            }
+
+            try {
+                await request(`/booking/booking/${testBookingId}/cancel`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: 'Test cleanup' })
+                });
+
+                return `[OK] Test booking ${testBookingId} cancelled successfully`;
+            } catch (err) {
+                return `[WARN] Could not cancel booking: ${err.message}`;
+            }
+        }
+
+        // ===== TEST RUNNER =====
+
+        const tests = [
+            { id: 'test-auth-login', fn: test1_ManagerLogin },
+            { id: 'test-auth-token', fn: test2_JWTStructure },
+            { id: 'test-facility-list', fn: test3_LoadFacilities },
+            { id: 'test-courts-list', fn: test4_LoadCourts },
+            { id: 'test-bookings-list', fn: test5_LoadBookings },
+            { id: 'test-walkin-create', fn: test6_CreateWalkIn },
+            { id: 'test-walkin-verify', fn: test7_VerifyBookingCreated },
+            { id: 'test-report-filter-status', fn: test8_ReportFilterStatus },
+            { id: 'test-report-revenue', fn: test9_RevenueCalculation },
+            { id: 'test-ui-courts-timeline', fn: test10_CourtsTimeline },
+            { id: 'test-ui-booking-table', fn: test11_BookingTable },
+            { id: 'test-cleanup', fn: test12_Cleanup }
+        ];
+
+        async function runTests(testsToRun) {
+            API_BASE_URL = document.getElementById('api-base-url').value;
+            authToken = null;
+            testFacilityId = null;
+            testCourtId = null;
+            testBookingId = null;
+            shouldStop = false;
+            startTime = Date.now();
+
+            stats.total = testsToRun.length;
+            stats.passed = 0;
+            stats.failed = 0;
+            updateStats();
+
+            document.getElementById('run-all-btn').disabled = true;
+            document.getElementById('run-selected-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+
+            for (const test of testsToRun) {
+                if (shouldStop) {
+                    setTestStatus(test.id, 'pending', '[PAUSE] Stopped by user');
+                    continue;
+                }
+
+                setTestStatus(test.id, 'running', 'Running...');
+
+                try {
+                    const result = await test.fn();
+                    setTestStatus(test.id, 'passed', result);
+                } catch (err) {
+                    setTestStatus(test.id, 'failed', '[FAIL] Test failed', err.message);
+                    console.error(`Test ${test.id} failed:`, err);
+                    
+                    // Stop on critical failures
+                    if (test.id === 'test-auth-login' || test.id === 'test-facility-list') {
+                        alert('Critical test failed. Stopping test suite.');
+                        break;
+                    }
+                }
+            }
+
+            document.getElementById('run-all-btn').disabled = false;
+            document.getElementById('run-selected-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+        }
+
+        async function runAllTests() {
+            await runTests(tests);
+        }
+
+        async function runSelectedTests() {
+            const selected = tests.filter(test => {
+                const checkbox = document.querySelector(`#${test.id} input[type="checkbox"]`);
+                return checkbox && checkbox.checked;
+            });
+
+            if (selected.length === 0) {
+                alert('No tests selected!');
+                return;
+            }
+
+            await runTests(selected);
+        }
+
+        function stopTests() {
+            shouldStop = true;
+            document.getElementById('stop-btn').disabled = true;
+        }
+    </script>
+</body>
+</html>

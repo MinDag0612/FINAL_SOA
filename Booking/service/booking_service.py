@@ -1,9 +1,12 @@
 import os
+import logging
 from datetime import datetime
 from typing import List, Optional
 
 import httpx
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 from Booking.message import send_event
 from Booking.models.booking_models import (
@@ -89,7 +92,9 @@ class BookingService:
 
     def update_booking(self, booking_id: int, payload: BookingUpdate, user_id: Optional[int] = None) -> Booking:
         booking = self.get_booking(booking_id, user_id)
-        if booking.status not in ("pending", "confirmed"):
+        # Manager (user_id=None) có thể update booking ở bất kỳ trạng thái nào
+        # Customer chỉ có thể update khi status là pending hoặc confirmed
+        if user_id is not None and booking.status not in ("pending", "confirmed"):
             raise HTTPException(status_code=400, detail="Cannot update booking in current status")
         updated = self.repo.update_booking(booking_id, payload)
         if not updated:
@@ -121,7 +126,7 @@ class BookingService:
             raise HTTPException(status_code=404, detail="Booking not found")
         deleted = self.repo.delete_booking(booking_id)
         if not deleted:
-            raise HTTPException(status_code=404, detail="Booking not found")
+            raise HTTPException(status_code=500, detail="Failed to delete booking")
 
     def update_payment_status(self, booking_id: int, payload: PaymentStatusUpdate) -> Booking:
         booking = self.repo.get_booking(booking_id)
@@ -184,8 +189,15 @@ class BookingService:
                         raise HTTPException(status_code=404, detail=f"Court {court_id} not found")
         except HTTPException:
             raise
+        except httpx.TimeoutException as e:
+            logger.error(f"Service timeout: {e}")
+            raise HTTPException(status_code=504, detail="Service timeout")
+        except httpx.ConnectError as e:
+            logger.error(f"Cannot connect to service: {e}")
+            raise HTTPException(status_code=502, detail="Cannot reach court/facility service")
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Cannot reach court service: {exc}")
+            logger.error(f"Unexpected error: {exc}")
+            raise HTTPException(status_code=502, detail=f"Service error: {str(exc)}")
 
     def _create_invoice(self, booking: Booking) -> dict:
         payload = {
@@ -223,18 +235,12 @@ class BookingService:
                     for item in booking.items
                 ],
             }
-            # send_event("BOOKING_CONFIRMED", event_payload)
-        except Exception:
-            # Swallow errors so payment callback does not fail
-            pass
+            send_event("BOOKING_CONFIRMED", event_payload)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to emit booking event: {e}")
 #--------- FOR MANAGER FLOW --------------
-<<<<<<< HEAD
     def get_time_slots_by_court(self, court_id: int) -> List[dict]:
-=======
-    def get_time_slots_by_court(self, court_id: int, user_id: int) -> List[dict]:
-        
-        
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
         try:
             slots = self.repo.get_time_slots_by_court(court_id)
             return slots

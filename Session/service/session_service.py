@@ -3,9 +3,9 @@ from models.session_models import SessionCreate, SessionDeleteResponse, SessionI
 
 
 class SessionService:
-    """Stub session management."""
 
     def __init__(self):
+        # TODO: Initialize SessionRepository instead
         self._sample = SessionInfo(
             session_id=1,
             user_id=7,
@@ -16,6 +16,7 @@ class SessionService:
         )
 
     def create_session(self, payload: SessionCreate) -> SessionInfo:
+        # TODO: Save to database
         return SessionInfo(
             session_id=55,
             user_id=payload.user_id,
@@ -26,12 +27,14 @@ class SessionService:
         )
 
     def list_by_user(self, user_id: int) -> List[SessionInfo]:
+        # TODO: Query from database
         return [
             self._sample.copy(update={"session_id": 1, "user_id": user_id}),
             self._sample.copy(update={"session_id": 2, "user_id": user_id, "device": "Mobile"}),
         ]
 
     def delete_session(self, session_id: int) -> SessionDeleteResponse:
+        # TODO: Delete from database
         return SessionDeleteResponse(
             session_id=session_id,
             message="Stub delete – chưa cập nhật DB",

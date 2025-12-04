@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session
-from jwt_shared.jwt import jwt_services
+from jwt_shared.dependencies import get_current_user
 
 from Booking.core.connDB import connDB
 from Booking.models.booking_models import (
@@ -14,20 +14,6 @@ from Booking.models.booking_models import (
 from Booking.service.booking_service import BookingService
 
 app = FastAPI()
-
-jwt_services = jwt_services()
-
-
-def get_current_user(token: str = Depends(jwt_services.oauth2_scheme)):
-    try:
-        payload = jwt_services.decode_access_token(token)
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return payload
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
 
 db = connDB()
 
@@ -68,6 +54,32 @@ def create_booking(
     return {"status": "success", "data": service.create_booking(payload_with_user, user["infor"]["email"])}
 
 
+#------------------FOR MANAGER FLOW (MUST BE BEFORE /{booking_id})----------------------------------
+@app.get("/manager/{court_id}/time_slots")
+def get_time_slots_by_court(
+    court_id: int,
+    service: BookingService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+):
+    try:
+        time_slots = service.get_time_slots_by_court(court_id)
+        return {"status": "success", "data": time_slots}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/manager/{facility_id}/bookings")
+def get_bookings_by_facility(
+    facility_id: int,
+    date: Optional[str] = Query(None),
+    service: BookingService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+):
+    bookings = service.get_bookings_by_facility(facility_id, date)
+    return {"status": "success", "data": bookings}
+
+
 @app.get("/booking/{booking_id}")
 def get_booking(
     booking_id: int,
@@ -86,7 +98,9 @@ def update_booking(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return service.update_booking(booking_id, payload, user_id=int(user["sub"]))
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return service.update_booking(booking_id, payload, user_id=user_id)
 
 
 @app.post("/booking/{booking_id}/cancel")
@@ -96,7 +110,9 @@ def cancel_booking(
     service: BookingService = Depends(get_service),
     user: dict = Depends(get_current_user),
 ):
-    return service.cancel_booking(booking_id, payload, user_id=int(user["sub"]))
+    role = user.get("infor", {}).get("role")
+    user_id = None if role == "manager" else int(user["sub"])
+    return service.cancel_booking(booking_id, payload, user_id=user_id)
 
 
 @app.delete("/booking/{booking_id}")
@@ -118,26 +134,3 @@ def payment_callback(
     service: BookingService = Depends(get_service),
 ):
     return service.update_payment_status(booking_id, payload)
-
-#------------------FOR MANAGER FLOW----------------------------------
-@app.get("/manager/{court_id}/time_slots")
-def get_time_slots_by_court(
-    court_id: int,
-    service: BookingService = Depends(get_service),
-    user: dict = Depends(get_current_user),
-):
-    try:
-        time_slots = service.get_time_slots_by_court(court_id)
-        return {"status": "success", "data": time_slots}
-    except HTTPException as e:
-        raise {"status": "error", "detail": e.detail}
-    
-@app.get("/manager/{facility_id}/bookings")
-def get_bookings_by_facility(
-    facility_id: int,
-    date: Optional[str] = Query(None),
-    service: BookingService = Depends(get_service),
-    user: dict = Depends(get_current_user),
-):
-    bookings = service.get_bookings_by_facility(facility_id, date)
-    return {"status": "success", "data": bookings}

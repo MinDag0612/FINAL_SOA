@@ -22,6 +22,7 @@ class SePayService:
         self.api_url = os.getenv("SEPAY_API_URL", "https://api.sandbox.sepay.vn")
         self.checkout_url = os.getenv("SEPAY_CHECKOUT_URL", "https://pay-sandbox.sepay.vn/v1/checkout/init")
         self.backend_public_url = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8002")
+        self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8888")
         self.return_endpoint = f"{self.backend_public_url}/billing/sepay/return"
         self.ipn_endpoint = f"{self.backend_public_url}/billing/sepay/ipn"
         self.api_version = os.getenv("SEPAY_API_VERSION", "3.0")
@@ -66,22 +67,41 @@ class SePayService:
                 "checkout_url": checkout_url
             }
         """
+        order_code = order_code or f"booking-{booking_id}"
+        
         if not self.enable_sepay:
-            # Mock payment when disabled
+            # Use mock payment gateway when SePay is disabled
+            mock_payment_url = f"{self.backend_public_url}/ui/Homepage/mock_payment.html"
+            ipn_url = self.ipn_endpoint
+            # Return to frontend homepage with payment result, preserving user's domain
+            base_return_url = f"{self.frontend_url}/Homepage/homepage.html?payment=success&booking_id={booking_id}"
+            cancel_url = f"{self.frontend_url}/Homepage/homepage.html?payment=cancel&booking_id={booking_id}"
+            
+            query_params = urlencode({
+                "orderCode": order_code,
+                "amount": int(amount),
+                "description": description[:120],
+                "returnUrl": base_return_url,
+                "cancelUrl": cancel_url,
+                "bookingId": booking_id
+            })
+            
             return {
-                "payment_url": None,
+                "payment_url": f"{mock_payment_url}?{query_params}",
                 "booking_id": booking_id,
                 "amount": amount,
-                "merchant_id": self.merchant_id,
-                "checkout_url": None,
-                "status": "paid",
-                "message": "SePay disabled; marked as paid immediately",
+                "merchant_id": "MOCK",
+                "order_code": order_code,
+                "return_url": base_return_url,
+                "status": "pending",
+                "message": "Using mock payment gateway (SePay disabled)",
             }
 
         order_code = order_code or f"booking-{booking_id}"
         ipn_url = self.ipn_endpoint
-        base_return_url = f"{self.return_endpoint}?booking_id={booking_id}"
-        cancel_url = f"{self.return_endpoint}?booking_id={booking_id}&status=cancel"
+        # Return to frontend homepage with payment result, preserving user's domain
+        base_return_url = f"{self.frontend_url}/Homepage/homepage.html?payment=success&booking_id={booking_id}"
+        cancel_url = f"{self.frontend_url}/Homepage/homepage.html?payment=cancel&booking_id={booking_id}"
 
         # Build checkout payload
         payload = {

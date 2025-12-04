@@ -26,7 +26,6 @@ const ManagerBooking = (() => {
               <th>Ngày</th>
               <th>Giờ</th>
               <th>Trạng Thái</th>
-              <th>Thanh Toán</th>
               <th>Tổng Tiền</th>
               <th>Hành Động</th>
             </tr>
@@ -36,8 +35,9 @@ const ManagerBooking = (() => {
 
     bookings.forEach(booking => {
       const courtName = courtMap[booking.courtId || booking.court_id] || `Sân #${booking.courtId || booking.court_id}`;
-      const start = new Date(booking.start_time || booking.start);
-      const end = new Date(booking.end_time || booking.end);
+      // Handle both normalized booking (start/end as Date objects) and raw booking (start_time/end_time as strings)
+      const start = booking.start instanceof Date ? booking.start : new Date(booking.start_time || booking.start);
+      const end = booking.end instanceof Date ? booking.end : new Date(booking.end_time || booking.end);
       const date = start.toLocaleDateString('vi-VN');
       const time = `${String(start.getHours()).padStart(2, '0')}:00 - ${String(end.getHours()).padStart(2, '0')}:00`;
       const status = booking.status || booking.uiStatus || 'pending';
@@ -70,9 +70,14 @@ const ManagerBooking = (() => {
           <td>${courtName}</td>
           <td>${date}</td>
           <td>${time}</td>
-          <td>${statusBadge}</td>
-          <td>${paymentBadge}</td>
-          <td>${formatCurrency(total)}</td>
+          <td>
+            <select class="status-dropdown" onchange="ManagerBooking.updateBookingStatus(${booking.id}, this.value)">
+              <option value="pending" ${status === 'pending' ? 'selected' : ''}>Chờ Xác Nhận</option>
+              <option value="confirmed" ${status === 'confirmed' ? 'selected' : ''}>Xác Nhận</option>
+              <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Hủy</option>
+            </select>
+          </td>
+          <td>${window.formatCurrency(total)}</td>
           <td>
             <button class="btn-icon-small" onclick="ManagerBooking.deleteBooking(${booking.id})" title="Hủy">
               <i class="fa-solid fa-trash"></i>
@@ -111,7 +116,8 @@ const ManagerBooking = (() => {
   };
 
   const renderWalkInForm = (courts) => {
-    const today = new Date().toISOString().split('T')[0];
+    // Use manager selected date, fallback to today
+    const selectedDate = window.state?.managerDate || new Date().toISOString().split('T')[0];
     
     return `
       <div class="walkin-form">
@@ -138,7 +144,7 @@ const ManagerBooking = (() => {
           </div>
           <div class="form-group">
             <label>Ngày *</label>
-            <input type="date" id="walkin-date" value="${today}" />
+            <input type="date" id="walkin-date" value="${selectedDate}" />
           </div>
           <div class="form-group">
             <label>Giờ Bắt Đầu *</label>
@@ -150,6 +156,14 @@ const ManagerBooking = (() => {
             <label>Giờ Kết Thúc *</label>
             <select id="walkin-end-hour">
               ${Array.from({length: 24}, (_, i) => i + 1).map(h => `<option value="${h}">${String(h).padStart(2, '0')}:00</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Trạng Thái *</label>
+            <select id="walkin-status">
+              <option value="pending">Chờ Xác Nhận</option>
+              <option value="confirmed">Xác Nhận</option>
+              <option value="cancelled">Hủy</option>
             </select>
           </div>
           <div class="form-group">
@@ -173,6 +187,7 @@ const ManagerBooking = (() => {
     const date = document.getElementById("walkin-date")?.value;
     const startHour = parseInt(document.getElementById("walkin-start-hour")?.value || "", 10);
     const endHour = parseInt(document.getElementById("walkin-end-hour")?.value || "", 10);
+    const status = document.getElementById("walkin-status")?.value || "pending";
     const note = document.getElementById("walkin-note")?.value.trim();
 
     if (!name || !phone || !courtId || !date || startHour == null || endHour == null) {
@@ -192,7 +207,7 @@ const ManagerBooking = (() => {
       const totalHours = endHour - startHour;
       const price = totalHours * 100000;
 
-      const facilityId = state?.managerFacilityId || state?.selectedFacilityId;
+      const facilityId = window.state?.managerFacilityId || window.state?.selectedFacilityId;
       if (!facilityId) {
         alert("Vui lòng chọn cơ sở quản lý trước khi tạo booking.");
         return;
@@ -200,6 +215,7 @@ const ManagerBooking = (() => {
 
       const payload = {
         facility_id: facilityId,
+        status: status,
         items: [{
           court_id: courtId,
           start_time: startTime.toISOString(),
@@ -218,13 +234,34 @@ const ManagerBooking = (() => {
 
       console.log("[submitWalkIn] Booking created:", res.data);
       
-      showToast("Booking tại chỗ tạo thành công!");
+      window.showToast("Booking tại chỗ tạo thành công!");
       resetWalkInForm();
       
+      // Small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log("[submitWalkIn] Refreshing manager view...");
       if (typeof window.refreshManagerView === "function") {
+        console.log("[submitWalkIn] Calling window.refreshManagerView");
         await window.refreshManagerView();
+        console.log("[submitWalkIn] Refresh completed");
       } else if (typeof window.refreshManagerBookings === "function") {
+        console.log("[submitWalkIn] Calling window.refreshManagerBookings");
         await window.refreshManagerBookings();
+        console.log("[submitWalkIn] Refresh completed");
+      } else {
+        console.error("[submitWalkIn] No refresh function available!");
+      }
+      
+      // Refresh customer bookings cache
+      console.log("[submitWalkIn] Refreshing customer bookings cache...");
+      if (typeof window.refreshBookings === "function") {
+        await window.refreshBookings();
+      }
+      
+      // Refresh customer grid nếu đang xem
+      if (typeof window.renderBookingGrid === "function") {
+        window.renderBookingGrid();
       }
     } catch (err) {
       console.error("[submitWalkIn] Error:", err);
@@ -239,7 +276,56 @@ const ManagerBooking = (() => {
     document.getElementById("walkin-court").value = "";
     document.getElementById("walkin-start-hour").value = "8";
     document.getElementById("walkin-end-hour").value = "9";
+    document.getElementById("walkin-status").value = "pending";
     document.getElementById("walkin-note").value = "";
+  };
+
+  const updateBookingStatus = async (bookingId, newStatus) => {
+    try {
+      console.log(`[updateBookingStatus] Updating booking ${bookingId} to status: ${newStatus}`);
+      
+      // Call API to update booking status
+      const res = await window.api.booking.updateStatus(bookingId, newStatus);
+      
+      console.log("[updateBookingStatus] Result:", res);
+      
+      const statusMessages = {
+        'pending': 'Booking đã chuyển sang trạng thái: Chờ Xác Nhận',
+        'confirmed': 'Booking đã được Xác Nhận!',
+        'cancelled': 'Booking đã bị Hủy!'
+      };
+      
+      window.showToast(statusMessages[newStatus] || 'Cập nhật trạng thái thành công!');
+
+      // Small delay to ensure DB is updated
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Refresh manager view
+      console.log("[updateBookingStatus] Refreshing manager view...");
+      if (typeof window.refreshManagerView === "function") {
+        await window.refreshManagerView();
+      } else if (typeof window.refreshManagerBookings === "function") {
+        await window.refreshManagerBookings();
+      }
+      
+      // Force refresh customer bookings cache để cập nhật danh sách sân
+      console.log("[updateBookingStatus] Force refreshing customer bookings cache...");
+      if (typeof window.refreshBookings === "function") {
+        await window.refreshBookings({ forceRefresh: true });
+      }
+      
+      // Nếu customer đang xem booking view, refresh luôn
+      if (typeof window.renderBookingGrid === "function") {
+        window.renderBookingGrid();
+      }
+    } catch (err) {
+      console.error("[updateBookingStatus] Error:", err);
+      alert("Lỗi cập nhật trạng thái: " + err.message);
+      // Refresh to revert the dropdown
+      if (typeof window.refreshManagerView === "function") {
+        await window.refreshManagerView();
+      }
+    }
   };
 
   const deleteBooking = async (bookingId) => {
@@ -256,12 +342,26 @@ const ManagerBooking = (() => {
 
       console.log("[deleteBooking] Result:", res);
       
-      showToast("Booking đã được hủy!");
+      window.showToast("Booking đã được hủy!");
 
+      console.log("[deleteBooking] Refreshing manager view...");
       if (typeof window.refreshManagerView === "function") {
         await window.refreshManagerView();
       } else if (typeof window.refreshManagerBookings === "function") {
         await window.refreshManagerBookings();
+      } else {
+        console.error("[deleteBooking] No refresh function available!");
+      }
+      
+      // Refresh customer bookings cache
+      console.log("[deleteBooking] Refreshing customer bookings cache...");
+      if (typeof window.refreshBookings === "function") {
+        await window.refreshBookings();
+      }
+      
+      // Refresh customer grid nếu đang xem
+      if (typeof window.renderBookingGrid === "function") {
+        window.renderBookingGrid();
       }
     } catch (err) {
       console.error("[deleteBooking] Error:", err);
@@ -274,6 +374,7 @@ const ManagerBooking = (() => {
     renderWalkInForm,
     submitWalkIn,
     resetWalkInForm,
+    updateBookingStatus,
     deleteBooking,
   };
 })();

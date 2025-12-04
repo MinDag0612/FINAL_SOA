@@ -1,0 +1,27 @@
+Query -----------
+USE DB_COURT;
+
+SELECT 
+    c.court_id,
+    c.name AS court_name,
+    p.price_id,
+    p.price,
+    h.start AS hour_start,
+    h.end AS hour_end,
+    d.list_day
+FROM Court c
+JOIN Price p ON p.court_id = c.court_id AND p.status = 'official'
+JOIN Days d  ON d.price_id = p.price_id
+JOIN Hours h ON h.price_id = p.price_id
+WHERE 
+	c.court_id = 1
+    AND h.start <= '20:00'
+    AND h.end >= '22:00'
+    AND (
+        JSON_CONTAINS(d.list_day, '"Sat"')
+        OR JSON_CONTAINS(d.list_day, '"Sun"')
+    )
+ORDER BY 
+    c.court_id, p.price_id;
+------------------------
+lấy giá theo id sân ngày thứ 7 chủ nhật

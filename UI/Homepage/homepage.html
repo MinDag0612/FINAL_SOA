@@ -18,7 +18,7 @@
 
     <aside class="sidebar">
         <div>
-            <div class="logo"><i class="fa-solid fa-shuttlecock"></i> Badminton</div>
+            <div class="logo"><i class="fa-solid fa-shuttlecock"></i> BSport</div>
             <ul class="nav-menu">
                 <li class="nav-item"><a href="#" class="nav-link active" data-view="dashboard"><i class="fa-solid fa-layer-group"></i> Dashboard</a></li>
                 <li class="nav-item"><a href="#" class="nav-link" data-view="booking"><i class="fa-regular fa-calendar-days"></i> Đặt & Điều Phối</a></li>
@@ -135,9 +135,38 @@
 
     <script src="apiClient.js"></script>
     <script src="payment_handler.js"></script>
-    <script src="../Manager/manager_courts.js"></script>
-    <script src="../Manager/manager_booking.js"></script>
-    <script src="../Manager/manager_report.js"></script>
-    <script src="homepage.js?v=20250107"></script>
+    
+    <!-- Load manager scripts dynamically based on user role -->
+    <script>
+      (function() {
+        // Check if user is manager after auth loads
+        const checkAndLoadManagerScripts = () => {
+          const auth = window.api?.getAuth?.();
+          if (auth?.user?.role === 'manager') {
+            const managerScripts = [
+              '../Manager/manager_courts.js',
+              '../Manager/manager_booking.js',
+              '../Manager/manager_report.js',
+              '../Manager/manager_report_charts.js'
+            ];
+            
+            managerScripts.forEach(src => {
+              const script = document.createElement('script');
+              script.src = src;
+              document.body.appendChild(script);
+            });
+          }
+        };
+        
+        // Try immediately, then retry after short delay
+        if (window.api) {
+          checkAndLoadManagerScripts();
+        } else {
+          setTimeout(checkAndLoadManagerScripts, 100);
+        }
+      })();
+    </script>
+    
+    <script src="homepage.js?v=20250127"></script>
 </body>
 </html>
