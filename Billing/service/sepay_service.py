@@ -71,11 +71,12 @@ class SePayService:
         
         if not self.enable_sepay:
             # Use mock payment gateway when SePay is disabled
-            mock_payment_url = f"{self.backend_public_url}/ui/Homepage/mock_payment.html"
+            # Use relative paths so it works regardless of origin (localhost, nginx, ngrok, etc.)
+            mock_payment_url = "/ui/Homepage/mock_payment.html"
             ipn_url = self.ipn_endpoint
-            # Return to frontend homepage with payment result, preserving user's domain
-            base_return_url = f"{self.frontend_url}/Homepage/homepage.html?payment=success&booking_id={booking_id}"
-            cancel_url = f"{self.frontend_url}/Homepage/homepage.html?payment=cancel&booking_id={booking_id}"
+            # Return to frontend homepage with payment result (relative path)
+            base_return_url = f"/ui/Homepage/homepage.html?payment=success&booking_id={booking_id}"
+            cancel_url = f"/ui/Homepage/homepage.html?payment=cancel&booking_id={booking_id}"
             
             query_params = urlencode({
                 "orderCode": order_code,

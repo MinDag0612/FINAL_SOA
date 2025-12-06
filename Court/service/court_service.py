@@ -73,3 +73,31 @@ class CourtService:
             return courts
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid facility ID")
+
+#------------------FOR STAFF FLOW----------------------------------
+    def get_staff_courts(self, staff_id: int) -> List[Court]:
+        """Get all courts assigned to a staff member"""
+        courts = self.court_repo.get_staff_assigned_courts(staff_id)
+        return courts
+    
+    def check_staff_can_access_court(self, staff_id: int, court_id: int) -> bool:
+        """Verify if staff has access to a specific court"""
+        return self.court_repo.check_staff_has_court_access(staff_id, court_id)
+
+#------------------PRICE HISTORY----------------------------------
+    def get_price_history(self, court_id: int) -> dict:
+        """Get price change history and current price schedules for a court"""
+        court = self.court_repo.get_court(court_id)
+        if not court:
+            raise HTTPException(status_code=404, detail="Court not found")
+        
+        history = self.court_repo.get_court_price_history(court_id)
+        schedules = self.court_repo.get_price_schedules(court_id)
+        
+        return {
+            "court_id": court_id,
+            "court_name": court.name,
+            "current_hourly_rate": court.hourly_rate,
+            "price_history": history,
+            "price_schedules": schedules
+        }

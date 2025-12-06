@@ -15,5 +15,5 @@ COPY ./Session /app/Session
 
 EXPOSE 8006
 
-# Chạy migrate rồi khởi động uvicorn
-CMD ["sh", "-c", "alembic -c Session/alembic.ini upgrade head && uvicorn Session.controller.main:app --host 0.0.0.0 --port 8006 --reload"]
+# Chạy uvicorn (skip alembic vì tables đã tồn tại)
+CMD ["uvicorn", "Session.controller.main:app", "--host", "0.0.0.0", "--port", "8006", "--reload"]

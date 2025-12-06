@@ -1,268 +1,150 @@
-import os
-import logging
 from datetime import datetime
 from typing import List, Optional
-
-import httpx
-from fastapi import HTTPException
-
-logger = logging.getLogger(__name__)
-
-from Booking.message import send_event
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from Booking.repository.booking_repository import BookingRepository
 from Booking.models.booking_models import (
-    Booking,
     BookingCancelRequest,
     BookingCreate,
-    BookingItem,
+    BookingRescheduleRequest,
+    BookingStatus,
     BookingUpdate,
-    PaymentStatusUpdate,
 )
-from Booking.repository.booking_repository import BookingRepository
 
 
 class BookingService:
-    """Booking flow with DB + external billing and court checks."""
-
-    def __init__(self, db_session):
-        self.repo = BookingRepository(db_session)
-        self.court_service_url = os.getenv("COURT_SERVICE_URL", "http://court_api:8004")
-        self.facility_service_url = os.getenv("FACILITY_SERVICE_URL", "http://facility_api:8005")
-        self.billing_service_url = os.getenv("BILLING_SERVICE_URL", "http://billing_api:8002")
-        self.enable_billing_autopay = (
-            os.getenv("ENABLE_BOOKING_AUTOPAY", "false").strip().lower() == "true"
-        )
-
-    def list_bookings(self, user_id: Optional[int] = None) -> List[Booking]:
-        return self.repo.list_bookings(user_id=user_id)
-
-    def get_booking(self, booking_id: int, user_id: Optional[int] = None) -> Booking:
-        booking = self.repo.get_booking(booking_id)
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        if user_id and booking.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Forbidden")
-        return booking
-
-    def create_booking(self, payload: BookingCreate, email: str) -> dict:
-        if payload.user_id is None:
-            raise HTTPException(status_code=400, detail="Missing user_id for booking")
-        self._validate_items(payload.items)
-        self._verify_facility_and_courts(payload.facility_id, [i.court_id for i in payload.items])
-        self._ensure_slots_available(payload.items)
-
-        total_amount = self._calculate_total(payload.items)
-
-        booking = self.repo.create_booking(
+    def __init__(self, db: Session):
+        self.repository = BookingRepository(db)
+        self.db = db
+    
+    def list_bookings(self, user_id: Optional[int] = None, facility_id: Optional[int] = None):
+        """List bookings with optional filters"""
+        return self.repository.list_bookings(user_id=user_id, facility_id=facility_id)
+    
+    def create_booking(self, payload: BookingCreate, user_email: str, user_role: str = "customer"):
+        """Create a new booking"""
+        # Calculate total amount from items
+        total_amount = sum(item.price for item in payload.items)
+        
+        # For first-come-first-served: create with confirmed status and pending payment
+        payment_status = "pending"
+        status = "confirmed"
+        
+        return self.repository.create_booking(
             payload=payload,
             total_amount=total_amount,
-            payment_status="pending",
+            payment_status=payment_status,
+            status=status,
+            user_role=user_role
         )
+    
+    def get_booking(self, booking_id: int, user_id: Optional[int] = None):
+        """Get booking by ID"""
+        return self.repository.get_booking(booking_id)
 
-        invoice = None
-        payment_intent = None
-        billing_error = None
-
-        if self.enable_billing_autopay:
-            try:
-                invoice = self._create_invoice(booking)
-                invoice_data = invoice.get("data") if isinstance(invoice, dict) else None
-                invoice_id = None
-                if isinstance(invoice_data, dict):
-                    invoice_id = invoice_data.get("invoice_id") or invoice_data.get("id")
-                if invoice_id:
-                    self.repo.update_payment_reference(booking.booking_id, str(invoice_id))
-                    booking.payment_reference = str(invoice_id)
-                    payment_intent = self._initiate_payment(invoice_id, booking, payload.payment_method)
-            except Exception as exc:
-                billing_error = str(exc)
-
-        
-        send_event("booking.confirmed", {
-            "booking_id": booking.booking_id,
-            "facility_id": booking.facility_id,
-            "user_id": booking.user_id,
-            "email": email
-        })
-        return {
-            "booking": booking,
-            "invoice": invoice,
-            "payment_intent": payment_intent,
-            "billing_error": billing_error,
-        }
-
-    def update_booking(self, booking_id: int, payload: BookingUpdate, user_id: Optional[int] = None) -> Booking:
-        booking = self.get_booking(booking_id, user_id)
-        # Manager (user_id=None) có thể update booking ở bất kỳ trạng thái nào
-        # Customer chỉ có thể update khi status là pending hoặc confirmed
-        if user_id is not None and booking.status not in ("pending", "confirmed"):
-            raise HTTPException(status_code=400, detail="Cannot update booking in current status")
-        updated = self.repo.update_booking(booking_id, payload)
-        if not updated:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        return updated
-
-    def cancel_booking(self, booking_id: int, payload: BookingCancelRequest, user_id: Optional[int] = None) -> Booking:
-        booking = self.get_booking(booking_id, user_id)
-        if booking.status in ("cancelled", "completed"):
-            return booking
-        cancelled = self.repo.cancel_booking(booking_id, payload.reason)
-        if not cancelled:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        # Nếu có hóa đơn, báo sang Billing để hủy invoice/payment
-        if cancelled.payment_reference:
-            try:
-                with httpx.Client(timeout=5.0) as client:
-                    client.post(
-                        f"{self.billing_service_url}/billing/{cancelled.payment_reference}/webhook",
-                        json={"event": "cancel", "payload": {"reason": payload.reason or "user_cancel"}},
-                    )
-            except Exception:
-                pass
-        return cancelled
-
-    def delete_booking(self, booking_id: int) -> None:
-        booking = self.repo.get_booking(booking_id)
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        deleted = self.repo.delete_booking(booking_id)
-        if not deleted:
-            raise HTTPException(status_code=500, detail="Failed to delete booking")
-
-    def update_payment_status(self, booking_id: int, payload: PaymentStatusUpdate) -> Booking:
-        booking = self.repo.get_booking(booking_id)
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
-
-        if payload.status == "paid":
-            # Explicitly move pending bookings to confirmed once payment succeeds
-            target_status = "confirmed" if booking.status in ("pending", "booked") else booking.status
-            updated = self.repo.update_payment_status(
-                booking_id,
-                payment_status="paid",
-                status=target_status,
-                reference_id=payload.reference_id,
-                paid_at=datetime.utcnow(),
-            )
-            if updated:
-                self._emit_booking_confirmed(updated)
-        else:
-            updated = self.repo.update_payment_status(
-                booking_id,
-                payment_status="failed",
-                status="cancelled",
-                reference_id=payload.reference_id,
-                paid_at=None,
-            )
-        if not updated:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        return updated
-
-    # -------- Internal helpers --------
-    def _validate_items(self, items: List[BookingItem]) -> None:
-        if not items:
-            raise HTTPException(status_code=400, detail="Booking items cannot be empty")
-        for item in items:
-            if item.start_time >= item.end_time:
-                raise HTTPException(status_code=400, detail="start_time must be before end_time")
-
-    def _ensure_slots_available(self, items: List[BookingItem]) -> None:
-        for item in items:
-            if self.repo.has_conflict(item.court_id, item.start_time, item.end_time):
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Court {item.court_id} is not available for the requested slot",
-                )
-
-    def _calculate_total(self, items: List[BookingItem]) -> float:
-        return float(sum(item.price for item in items))
-
-    def _verify_facility_and_courts(self, facility_id: int, court_ids: List[int]) -> None:
-        try:
-            with httpx.Client(timeout=5.0) as client:
-                facility_resp = client.get(f"{self.facility_service_url}/facility/{facility_id}")
-                if facility_resp.status_code != 200:
-                    raise HTTPException(status_code=404, detail="Facility not found")
-
-                for court_id in set(court_ids):
-                    resp = client.get(f"{self.court_service_url}/court/{court_id}")
-                    if resp.status_code != 200:
-                        raise HTTPException(status_code=404, detail=f"Court {court_id} not found")
-        except HTTPException:
-            raise
-        except httpx.TimeoutException as e:
-            logger.error(f"Service timeout: {e}")
-            raise HTTPException(status_code=504, detail="Service timeout")
-        except httpx.ConnectError as e:
-            logger.error(f"Cannot connect to service: {e}")
-            raise HTTPException(status_code=502, detail="Cannot reach court/facility service")
-        except Exception as exc:
-            logger.error(f"Unexpected error: {exc}")
-            raise HTTPException(status_code=502, detail=f"Service error: {str(exc)}")
-
-    def _create_invoice(self, booking: Booking) -> dict:
-        payload = {
-            "booking_id": booking.booking_id,
-            "user_id": booking.user_id,
-            "amount": booking.total_amount,
-            "currency": "VND",
-            "description": f"Booking #{booking.booking_id}",
-        }
-        with httpx.Client(timeout=5.0) as client:
-            resp = client.post(f"{self.billing_service_url}/billing", json=payload)
-            resp.raise_for_status()
-            return resp.json()
-
-    def _initiate_payment(self, invoice_id: int, booking: Booking, method: str) -> Optional[dict]:
-        payload = {"method": method, "booking_id": booking.booking_id}
-        with httpx.Client(timeout=5.0) as client:
-            resp = client.post(f"{self.billing_service_url}/billing/{invoice_id}/pay", json=payload)
-            resp.raise_for_status()
-            return resp.json()
-
-    def _emit_booking_confirmed(self, booking: Booking) -> None:
-        try:
-            event_payload = {
-                "booking_id": booking.booking_id,
-                "user_id": booking.user_id,
-                "facility_id": booking.facility_id,
-                "status": booking.status,
-                "items": [
-                    {
-                        "court_id": item.court_id,
-                        "start_time": item.start_time.isoformat(),
-                        "end_time": item.end_time.isoformat(),
-                    }
-                    for item in booking.items
-                ],
-            }
-            send_event("BOOKING_CONFIRMED", event_payload)
-        except Exception as e:
-            import logging
-            logging.warning(f"Failed to emit booking event: {e}")
-#--------- FOR MANAGER FLOW --------------
-    def get_time_slots_by_court(self, court_id: int) -> List[dict]:
-        try:
-            slots = self.repo.get_time_slots_by_court(court_id)
-            return slots
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-        
-    def get_bookings_by_facility(self, facility_id: int, date: Optional[str] = None) -> List[Booking]:
-        target_date = None
+    def reschedule_booking(self, booking_id: int, payload: BookingRescheduleRequest, user_id: Optional[int] = None):
+        """Reschedule booking items with new times/prices"""
+        return self.repository.reschedule_booking_items(
+            booking_id=booking_id,
+            updates=payload.items,
+            user_id=user_id,
+            note=payload.note,
+        )
+    
+    def get_bookings_by_user(self, user_id: int):
+        """Get all bookings for a user"""
+        return self.repository.list_bookings(user_id=user_id)
+    
+    def get_bookings_by_facility(self, facility_id: int, date: Optional[str] = None):
+        """Get all bookings for a facility, optionally filtered by date"""
         if date:
-            try:
-                target_date = datetime.strptime(date, "%Y-%m-%d").date()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
+            # Filter by date using raw SQL
+            query = text("""
+                SELECT b.booking_id, b.user_id, b.facility_id, b.status, b.total_amount, 
+                       b.payment_status, b.payment_method, b.payment_reference, b.paid_at, b.note
+                FROM bookings b
+                JOIN booking_items bi ON b.booking_id = bi.booking_id
+                WHERE b.facility_id = :facility_id 
+                AND DATE(bi.start_time) = :date
+                GROUP BY b.booking_id
+                ORDER BY b.created_at DESC
+            """)
+            rows = self.db.execute(query, {"facility_id": facility_id, "date": date}).mappings().all()
+            items_map = self.repository._fetch_items_map([row["booking_id"] for row in rows])
+            return [self.repository._row_to_booking(row, items_map.get(row["booking_id"], [])) for row in rows]
+        else:
+            return self.repository.list_bookings(facility_id=facility_id)
 
-        bookings = self.repo.list_bookings(facility_id=facility_id)
+    def get_booking_logs(self, facility_id: int, date: Optional[str] = None):
+        """Get log entries for a facility (used by manager history)"""
+        return self.repository.list_logs_by_facility(facility_id, date)
 
-        if target_date:
-            filtered = []
-            for booking in bookings:
-                items = booking.items or []
-                if any(item.start_time.date() == target_date for item in items):
-                    filtered.append(booking)
-            bookings = filtered
-
-        return bookings
+    def log_booking_action(
+        self,
+        booking_id: int,
+        action: str,
+        note: Optional[str] = None,
+        user_id: Optional[int] = None,
+        role: Optional[str] = None,
+    ):
+        """
+        Normalize the parameters expected by the repository-level log helper.
+        """
+        changed_by_role = role or ("manager" if user_id is None else "staff")
+        return self.repository.log_booking_action(
+            booking_id=booking_id,
+            action_type=action,
+            reason=note,
+            changed_by_user_id=user_id,
+            changed_by_role=changed_by_role,
+        )
+    
+    def get_time_slots_by_court(self, court_id: int):
+        """Get time slots for a specific court (for manager timeline)"""
+        query = text("""
+            SELECT bi.start_time, bi.end_time, b.booking_id, b.status, b.payment_status
+            FROM booking_items bi
+            JOIN bookings b ON bi.booking_id = b.booking_id
+            WHERE bi.court_id = :court_id
+            AND b.status != 'cancelled'
+            ORDER BY bi.start_time
+        """)
+        result = self.db.execute(query, {"court_id": court_id}).mappings().all()
+        return [dict(row) for row in result]
+    
+    def update_booking(self, booking_id: int, payload: BookingUpdate, user_id: Optional[int] = None):
+        """Update booking"""
+        return self.repository.update_booking(booking_id, payload, user_id=user_id)
+    
+    def cancel_booking(self, booking_id: int, payload: BookingCancelRequest, user_id: Optional[int] = None, user_role: Optional[str] = None):
+        """Cancel booking"""
+        return self.repository.cancel_booking(booking_id, payload.reason, changed_by=user_id, changed_by_role=user_role or 'customer')
+    
+    def update_payment_status(
+        self, 
+        booking_id: int, 
+        payment_status: str,
+        status: str,
+        reference_id: Optional[str] = None,
+        paid_at: Optional[datetime] = None
+    ):
+        """Update payment status"""
+        return self.repository.update_payment_status(
+            booking_id=booking_id,
+            payment_status=payment_status,
+            status=BookingStatus(status),
+            reference_id=reference_id,
+            paid_at=paid_at
+        )
+    
+    def get_all_bookings(self):
+        """Get all bookings"""
+        return self.repository.list_bookings()
+    
+    def get_booking_logs_by_id(self, booking_id: int):
+        """Get all log entries for a specific booking"""
+        return self.repository.get_booking_logs(booking_id)
+    
+    def get_facility_booking_logs(self, facility_id: int, date: Optional[str] = None, limit: int = 100):
+        """Get recent booking logs for a facility"""
+        return self.repository.get_facility_booking_logs(facility_id, date, limit)

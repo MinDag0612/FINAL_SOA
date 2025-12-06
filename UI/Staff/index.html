@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BSport Staff</title>
+    <link rel="preload" href="../Homepage/homepage.css" as="style" />
+    <link rel="stylesheet" href="../Homepage/homepage.css" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'" />
+    <style>
+        /* Ensure toast is visible and styled correctly */
+        #toast {
+            pointer-events: none;
+        }
+        #toast:not(.hidden) {
+            pointer-events: auto;
+        }
+    </style>
+    <script>
+        window.CONFIG = {
+            BACKEND_PUBLIC_URL: 'https://hyperpathetic-fugally-erin.ngrok-free.dev',
+            SEPAY_ENABLED: true
+        };
+    </script>
+  </head>
+  <body>
+    <main class="main-content manager-layout">
+      <!-- Toast Notification -->
+      <div id="toast" class="toast hidden"></div>
+
+      <!-- Staff Header -->
+      <div class="manager-top-header">
+        <div class="header-left">
+          <h1 class="manager-main-title">NHÂN VIÊN<br><span class="title-emphasis">TRỰC SÂN</span></h1>
+          <p class="manager-subtitle">Quản lý sân được phân công và booking</p>
+        </div>
+        <div class="header-right">
+          <div class="header-control-group">
+            <label for="staff-facility-select-global">Cơ sở</label>
+            <select id="staff-facility-select-global" class="facility-dropdown-global"></select>
+          </div>
+          <div class="header-control-group">
+            <label for="staff-date-select-global">Ngày hiện tại</label>
+            <input type="date" id="staff-date-select-global" class="date-input-global" />
+          </div>
+          <button class="logout-btn-header">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+          </button>
+        </div>
+      </div>
+
+      <div id="staff-loading" class="manager-loading hidden">
+        <div class="manager-spinner"></div>
+        <span>Đang tải dữ liệu...</span>
+      </div>
+
+      <!-- Staff Tabs (NO SETTINGS TAB) -->
+      <div class="manager-tabs">
+        <button class="tab-btn active" data-tab="courts">
+          <i class="fa-solid fa-table-list"></i> Sân Của Tôi
+        </button>
+        <button class="tab-btn" data-tab="bookings">
+          <i class="fa-solid fa-clock-rotate-left"></i> Lịch Sử Booking
+        </button>
+        <button class="tab-btn" data-tab="reports">
+          <i class="fa-solid fa-chart-line"></i> Báo Cáo Ca Trực
+        </button>
+      </div>
+
+      <!-- Staff Content -->
+      <div id="staff-content" class="manager-main-content">
+        <!-- Courts Tab -->
+        <div id="tab-courts" class="tab-content active">
+        <div id="courts-stats" class="stats-container"></div>
+        <div id="courts-filter-bar" class="courts-filter-bar"></div>
+        <div id="courts-list" class="courts-container"></div>
+        </div>
+
+        <!-- Bookings Tab -->
+        <div id="tab-bookings" class="tab-content">
+          <div id="bookings-header"></div>
+          <div id="bookings-walkin-form" class="walkin-form-container"></div>
+          <div id="bookings-list" class="bookings-container"></div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="tab-reports" class="tab-content">
+          <div id="reports-filter"></div>
+          <div id="report-container" class="report-container"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal: Booking Detail -->
+    <div id="bookingDetailModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('bookingDetailModal')">&times;</span>
+        <h3>Chi tiết Booking</h3>
+        <div id="booking-detail-content"></div>
+      </div>
+    </div>
+
+    <!-- Modal: Walk-In Booking -->
+    <div id="walkInModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('walkInModal')">&times;</span>
+        <h3>Đặt sân Walk-In</h3>
+        <div id="walkin-modal-content">
+          <form id="walkin-form">
+            <label for="walkin-court">Sân:</label>
+            <select id="walkin-court" class="input-field" required></select>
+
+            <label for="walkin-customer">Tên khách:</label>
+            <input type="text" id="walkin-customer" class="input-field" required />
+
+            <label for="walkin-phone">Số điện thoại:</label>
+            <input type="tel" id="walkin-phone" class="input-field" required />
+
+            <label for="walkin-date">Ngày:</label>
+            <input type="date" id="walkin-date" class="input-field" required />
+
+            <div class="time-row">
+              <div class="time-col">
+                <label for="walkin-start-hour">Giờ bắt đầu:</label>
+                <select id="walkin-start-hour" class="input-field" required></select>
+              </div>
+              <div class="time-col">
+                <label for="walkin-start-minute">Phút bắt đầu:</label>
+                <select id="walkin-start-minute" class="input-field" required></select>
+              </div>
+            </div>
+
+            <div class="time-row">
+              <div class="time-col">
+                <label for="walkin-end-hour">Giờ kết thúc:</label>
+                <select id="walkin-end-hour" class="input-field" required></select>
+              </div>
+              <div class="time-col">
+                <label for="walkin-end-minute">Phút kết thúc:</label>
+                <select id="walkin-end-minute" class="input-field" required></select>
+              </div>
+            </div>
+
+            <label for="walkin-note">Ghi chú (tuỳ chọn):</label>
+            <textarea id="walkin-note" class="input-field" rows="3"></textarea>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" onclick="closeModal('walkInModal')">Hủy</button>
+              <button type="submit" class="btn-primary">Xác nhận</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Update Status -->
+    <div id="statusModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('statusModal')">&times;</span>
+        <h3>Cập nhật trạng thái Booking</h3>
+        <div id="status-modal-content">
+          <form id="status-form">
+            <label for="status-select">Trạng thái mới:</label>
+            <select id="status-select" class="input-field" required>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="expired">Expired</option>
+            </select>
+
+            <label for="status-reason">Lý do (tuỳ chọn):</label>
+            <textarea id="status-reason" class="input-field" rows="3"></textarea>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" onclick="closeModal('statusModal')">Hủy</button>
+              <button type="submit" class="btn-primary">Cập nhật</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../Homepage/apiClient.js"></script>
+    <script src="../Homepage/shared_utils.js"></script>
+    <script src="staff_courts.js"></script>
+    <script src="staff_booking.js"></script>
+    <script src="staff_report.js"></script>
+    <script src="staff_report_charts.js"></script>
+    <script src="staff_main.js"></script>
+  </body>
+</html>

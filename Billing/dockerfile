@@ -24,5 +24,5 @@ COPY ./Billing /app/Billing
 
 EXPOSE 8002
 
-# Chạy migrate rồi khởi động uvicorn
-CMD ["sh", "-c", "alembic -c Billing/alembic.ini upgrade head && uvicorn Billing.controller.main:app --host 0.0.0.0 --port 8002 --reload"]
+# Chạy uvicorn (skip alembic vì tables đã tồn tại)
+CMD ["uvicorn", "Billing.controller.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]

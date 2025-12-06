@@ -1,5 +1,7 @@
 fastapi==0.121.2
 pwdlib==0.3.0
+pwdlib[argon2]
+pwdlib[bcrypt]
 pydantic==2.12.4
 python_jose==3.5.0
 SQLAlchemy==2.0.44

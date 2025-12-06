@@ -122,7 +122,7 @@
 <body>
     <div class="payment-container">
         <div class="logo">
-            <h1>🏸 Mock Payment Gateway</h1>
+            <h1>Mock Payment Gateway</h1>
             <p>Test Payment Interface</p>
         </div>
 
@@ -168,8 +168,39 @@
         const orderCode = urlParams.get('orderCode') || 'N/A';
         const amount = urlParams.get('amount') || '0';
         const description = urlParams.get('description') || 'No description';
-        const returnUrl = urlParams.get('returnUrl') || '/ui/Homepage/homepage.html';
-        const cancelUrl = urlParams.get('cancelUrl') || '/ui/Homepage/homepage.html';
+        
+        // Fix returnUrl: always use current origin + homepage path
+        const currentOrigin = window.location.origin; // http://localhost hoặc http://localhost:80
+        let returnUrl = urlParams.get('returnUrl');
+        
+        // Normalize returnUrl to use current origin
+        if (returnUrl) {
+            // Remove any existing origin/host from returnUrl
+            returnUrl = returnUrl.replace(/^https?:\/\/[^\/]+/, '');
+            // Ensure it starts with /
+            if (!returnUrl.startsWith('/')) {
+                returnUrl = '/' + returnUrl;
+            }
+            returnUrl = currentOrigin + returnUrl;
+        } else {
+            // Default to homepage
+            returnUrl = currentOrigin + '/Homepage/homepage.html';
+        }
+        
+        let cancelUrl = urlParams.get('cancelUrl');
+        if (cancelUrl) {
+            cancelUrl = cancelUrl.replace(/^https?:\/\/[^\/]+/, '');
+            if (!cancelUrl.startsWith('/')) {
+                cancelUrl = '/' + cancelUrl;
+            }
+            cancelUrl = currentOrigin + cancelUrl;
+        } else {
+            cancelUrl = currentOrigin + '/Homepage/homepage.html';
+        }
+
+        console.log('[Mock Payment] Current origin:', currentOrigin);
+        console.log('[Mock Payment] Return URL:', returnUrl);
+        console.log('[Mock Payment] Cancel URL:', cancelUrl);
 
         // Extract booking_id from orderCode (format: invoice-X-booking-Y)
         let bookingId = 'N/A';
@@ -188,17 +219,49 @@
         }).format(amount);
 
         function handlePaymentSuccess() {
-            const successUrl = `${returnUrl}&status=success&orderCode=${orderCode}&transactionId=MOCK-TXN-${Date.now()}&amount=${amount}`;
+            console.log('[Mock Payment] Payment success clicked');
+            const transactionId = `MOCK-TXN-${Date.now()}`;
+            const separator = returnUrl.includes('?') ? '&' : '?';
+            const successParams = new URLSearchParams({
+                status: "success",
+                payment: "success",
+                orderCode,
+                transactionId,
+                amount,
+            });
+            const successUrl = `${returnUrl}${separator}${successParams.toString()}`;
+            console.log('[Mock Payment] Redirecting to success URL:', successUrl);
             window.location.href = successUrl;
         }
 
         function handlePaymentFailed() {
-            const failUrl = `${returnUrl}&status=failed&orderCode=${orderCode}`;
+            console.log('[Mock Payment] Payment failed - keeping booking data for retry');
+            // Don't clear localStorage - user might want to try again
+            const separator = returnUrl.includes('?') ? '&' : '?';
+            const failParams = new URLSearchParams({
+                status: "failed",
+                payment: "failed",
+                orderCode,
+            });
+            const failUrl = `${returnUrl}${separator}${failParams.toString()}`;
+            console.log('[Mock Payment] Redirecting to fail URL:', failUrl);
             window.location.href = failUrl;
         }
 
         function handlePaymentCancel() {
-            window.location.href = cancelUrl;
+            console.log('[Mock Payment] Payment cancelled - clearing booking data');
+            // Clear localStorage on cancel
+            localStorage.removeItem('pendingBookingData');
+            localStorage.removeItem('pendingBookingBase');
+            const separator = cancelUrl.includes('?') ? '&' : '?';
+            const cancelParams = new URLSearchParams({
+                status: "cancelled",
+                payment: "cancelled",
+                orderCode,
+            });
+            const cancelUrlWithStatus = `${cancelUrl}${separator}${cancelParams.toString()}`;
+            console.log('[Mock Payment] Redirecting to cancel URL:', cancelUrlWithStatus);
+            window.location.href = cancelUrlWithStatus;
         }
     </script>
 </body>

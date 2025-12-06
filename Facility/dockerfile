@@ -18,4 +18,4 @@ COPY ./jwt_shared /app/jwt_shared
 
 EXPOSE 8005
 
-CMD ["sh", "-c", "alembic -c Facility/alembic.ini upgrade head && uvicorn Facility.controller.main:app --host 0.0.0.0 --port 8005 --reload"]
+CMD ["uvicorn", "Facility.controller.main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"]

@@ -2,6 +2,8 @@ CREATE DATABASE IF NOT EXISTS DB_BOOKING;
 
 USE DB_BOOKING;
 
+DROP TABLE IF EXISTS booking_logs;
+DROP TABLE IF EXISTS log_booking;
 DROP TABLE IF EXISTS booking_items;
 DROP TABLE IF EXISTS bookings;
 
@@ -14,6 +16,9 @@ CREATE TABLE bookings (
     payment_status   VARCHAR(20),
     payment_method   VARCHAR(50),
     payment_reference VARCHAR(100),
+    customer_name    VARCHAR(255),
+    customer_phone   VARCHAR(20),
+    customer_email   VARCHAR(255),
     note             TEXT,
     paid_at          DATETIME,
     cancel_reason    TEXT,
@@ -31,9 +36,46 @@ CREATE TABLE booking_items (
     CONSTRAINT fk_booking_item_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE log_booking (
+    log_id        INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id    INT NOT NULL,
+    item_id       INT NOT NULL,
+    court_id      INT NOT NULL,
+    old_start     DATETIME,
+    old_end       DATETIME,
+    new_start     DATETIME,
+    new_end       DATETIME,
+    old_price     DECIMAL(12,2),
+    new_price     DECIMAL(12,2),
+    action        VARCHAR(50) NOT NULL DEFAULT 'reschedule',
+    changed_by    INT,
+    note          TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_log_booking_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    CONSTRAINT fk_log_booking_item FOREIGN KEY (item_id) REFERENCES booking_items(item_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE INDEX idx_booking_court_time ON booking_items (court_id, start_time, end_time);
+CREATE INDEX idx_log_booking_booking ON log_booking (booking_id);
 
-<<<<<<< HEAD
+CREATE TABLE booking_logs (
+    log_id               INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id           INT NOT NULL,
+    action_type          VARCHAR(50) NOT NULL,
+    old_status           VARCHAR(20),
+    new_status           VARCHAR(20),
+    old_payment_status   VARCHAR(20),
+    new_payment_status   VARCHAR(20),
+    changed_by_user_id   INT,
+    changed_by_role      VARCHAR(20) DEFAULT 'system',
+    reason               TEXT,
+    changes_json         JSON,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_booking_logs_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_booking_logs_booking ON booking_logs (booking_id);
+
 INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, paid_at)
 VALUES
 (1, 1, 'confirmed', 200000, 'paid', 'cash', NOW()),
@@ -42,46 +84,4 @@ VALUES
 INSERT INTO booking_items (booking_id, court_id, start_time, end_time, price)
 VALUES
 (1, 1, '2025-11-20 07:00:00', '2025-11-20 09:00:00', 200000),
-(2, 3, '2025-11-21 19:00:00', '2025-11-21 21:00:00', 350000);
-=======
-<<<<<<< HEAD
--- ======= bookings =======
-INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, hold_expires_at, paid_at)
-VALUES
-(1, 1, 'confirmed', 200000, 'paid', 'cash', NULL, NOW()),
-(2, 1, 'pending', 350000, 'pending', 'momo', DATE_ADD(NOW(), INTERVAL 15 MINUTE), NULL),
-(1, 1, 'confirmed', 400000, 'paid', 'momo', NULL, NOW()),
-(2, 1, 'confirmed', 150000, 'paid', 'cash', NULL, NOW()),
-(1, 1, 'pending', 300000, 'pending', 'momo', DATE_ADD(NOW(), INTERVAL 30 MINUTE), NULL),
-(2, 1, 'confirmed', 250000, 'paid', 'cash', NULL, NOW()),
-(1, 1, 'confirmed', 350000, 'paid', 'momo', NULL, NOW()),
-(2, 1, 'pending', 200000, 'pending', 'cash', DATE_ADD(NOW(), INTERVAL 20 MINUTE), NULL),
-(1, 1, 'confirmed', 300000, 'paid', 'cash', NULL, NOW()),
-(2, 1, 'confirmed', 400000, 'paid', 'momo', NULL, NOW());
-=======
-INSERT INTO bookings (user_id, facility_id, status, total_amount, payment_status, payment_method, paid_at)
-VALUES
-(1, 1, 'confirmed', 200000, 'paid', 'cash', NOW()),
-(2, 2, 'pending', 350000, 'pending', 'momo', NULL);
->>>>>>> 2f647f178b4616b6ce97b54de11a0468833f0cbb
-
--- ======= booking_items =======
-INSERT INTO booking_items (booking_id, court_id, start_time, end_time, price)
-VALUES
-(1, 1, '2025-11-20 07:00:00', '2025-11-20 09:00:00', 200000),
-(2, 2, '2025-11-21 19:00:00', '2025-11-21 21:00:00', 350000),
-(3, 1, '2025-11-20 10:00:00', '2025-11-20 12:00:00', 200000),
-(3, 2, '2025-11-21 08:00:00', '2025-11-21 10:00:00', 200000),
-(4, 1, '2025-11-22 07:00:00', '2025-11-22 08:30:00', 150000),
-(5, 2, '2025-11-23 09:00:00', '2025-11-23 11:00:00', 150000),
-(5, 1, '2025-11-23 12:00:00', '2025-11-23 13:30:00', 150000),
-(6, 2, '2025-11-24 14:00:00', '2025-11-24 16:00:00', 250000),
-(7, 1, '2025-11-25 07:00:00', '2025-11-25 09:00:00', 175000),
-(7, 2, '2025-11-25 10:00:00', '2025-11-25 12:00:00', 175000),
-(8, 1, '2025-11-26 07:00:00', '2025-11-26 09:00:00', 200000),
-(9, 2, '2025-11-27 08:00:00', '2025-11-27 10:00:00', 150000),
-(9, 1, '2025-11-27 11:00:00', '2025-11-27 13:00:00', 150000),
-(10, 2, '2025-11-28 09:00:00', '2025-11-28 11:00:00', 200000),
-(10, 1, '2025-11-28 12:00:00', '2025-11-28 14:00:00', 200000);
-
->>>>>>> 7f3ffaacc95ad918698a4d53a6a3079a1216f6d3
+(2, 2, '2025-11-21 19:00:00', '2025-11-21 21:00:00', 350000);

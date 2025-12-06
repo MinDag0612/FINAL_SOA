@@ -126,3 +126,105 @@ class CourtRepository:
             return self.list_by_facility(facility_id)
         except ValueError:
             raise ValueError("Invalid facility ID")
+
+#------------------FOR STAFF FLOW----------------------------------
+    def get_staff_assigned_courts(self, staff_id: int) -> List[Court]:
+        """Get all courts assigned to a specific staff member"""
+        query = text(
+            """
+            SELECT c.court_id, c.facility_id, c.name, c.surface_type, c.hourly_rate, 
+                   c.description, c.available_hours, c.is_active
+            FROM Court c
+            INNER JOIN staff_courts sc ON c.court_id = sc.court_id
+            WHERE sc.staff_id = :staff_id AND c.is_active = 1
+            ORDER BY c.court_id
+            """
+        )
+        rows = self.db.execute(query, {"staff_id": staff_id}).mappings().all()
+        return [self._row_to_model(row) for row in rows]
+    
+    def check_staff_has_court_access(self, staff_id: int, court_id: int) -> bool:
+        """Check if staff has access to a specific court"""
+        query = text(
+            """
+            SELECT COUNT(*) as count
+            FROM staff_courts
+            WHERE staff_id = :staff_id AND court_id = :court_id
+            """
+        )
+        result = self.db.execute(query, {"staff_id": staff_id, "court_id": court_id}).mappings().first()
+        return result["count"] > 0
+    
+    def assign_court_to_staff(self, staff_id: int, court_id: int) -> bool:
+        """Assign a court to a staff member"""
+        try:
+            query = text(
+                """
+                INSERT INTO staff_courts (staff_id, court_id)
+                VALUES (:staff_id, :court_id)
+                ON DUPLICATE KEY UPDATE staff_id = staff_id
+                """
+            )
+            self.db.execute(query, {"staff_id": staff_id, "court_id": court_id})
+            self.db.commit()
+            return True
+        except Exception:
+            self.db.rollback()
+            return False
+    
+    def remove_court_from_staff(self, staff_id: int, court_id: int) -> bool:
+        """Remove a court assignment from a staff member"""
+        try:
+            query = text(
+                """
+                DELETE FROM staff_courts
+                WHERE staff_id = :staff_id AND court_id = :court_id
+                """
+            )
+            result = self.db.execute(query, {"staff_id": staff_id, "court_id": court_id})
+            self.db.commit()
+            return result.rowcount > 0
+        except Exception:
+            self.db.rollback()
+            return False
+
+#------------------PRICE HISTORY----------------------------------
+    def get_court_price_history(self, court_id: int) -> list:
+        """Get price change history for a specific court from court_log table"""
+        query = text(
+            """
+            SELECT 
+                log_id,
+                court_id,
+                hourly_rate,
+                changed_at,
+                status
+            FROM court_log
+            WHERE court_id = :court_id
+            ORDER BY changed_at DESC
+            """
+        )
+        rows = self.db.execute(query, {"court_id": court_id}).mappings().all()
+        return [dict(row) for row in rows]
+    
+    def get_price_schedules(self, court_id: int) -> list:
+        """Get current price schedules for a court (from Price, Days, Hours tables)"""
+        query = text(
+            """
+            SELECT 
+                p.price_id,
+                p.court_id,
+                p.price,
+                p.status,
+                d.list_day,
+                h.start as hours_start,
+                h.end as hours_end
+            FROM Price p
+            LEFT JOIN Days d ON p.price_id = d.price_id
+            LEFT JOIN Hours h ON p.price_id = h.price_id
+            WHERE p.court_id = :court_id AND p.status = 'official'
+            ORDER BY p.price_id, h.start
+            """
+        )
+        rows = self.db.execute(query, {"court_id": court_id}).mappings().all()
+        return [dict(row) for row in rows]

@@ -62,6 +62,17 @@ CREATE TABLE Hours (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE staff_courts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    staff_id INT NOT NULL COMMENT 'FK to Auth.User_Infor.user_id',
+    court_id INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_staff_court (staff_id, court_id),
+    FOREIGN KEY (court_id) REFERENCES Court(court_id) ON DELETE CASCADE,
+    INDEX idx_staff_id (staff_id),
+    INDEX idx_court_id (court_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 DELIMITER $$
 
 CREATE TRIGGER trg_court_update
@@ -186,3 +197,12 @@ INSERT INTO Hours (start, end, price_id) VALUES
 ('17:00', '22:00', 10),
 ('06:00', '17:00', 11),
 ('17:00', '22:00', 12);
+
+-- Sample staff_courts assignments
+-- Staff 1 (user_id=5) manages Court 1 and 2
+-- Staff 2 (user_id=6) manages Court 3 and 4
+INSERT INTO staff_courts (staff_id, court_id) VALUES
+(5, 1),
+(5, 2),
+(6, 3),
+(6, 4);

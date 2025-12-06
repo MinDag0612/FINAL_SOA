@@ -65,8 +65,18 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     const user = data?.user || { email, user_id: null };
     saveAuth({ token: data.token, user });
     setMessage(LOGIN_MESSAGE, "Đăng nhập thành công!");
+    
+    // Redirect based on role
     setTimeout(() => {
-      window.location.href = "../Homepage/homepage.html";
+      const userRole = user?.role || 'customer';
+      if (userRole === 'customer') {
+        window.location.href = "../Customer/index.html";
+      } else if (['manager', 'staff'].includes(userRole)) {
+        window.location.href = "../Manager/index.html";
+      } else {
+        // Default to customer page for unknown roles
+        window.location.href = "../Customer/index.html";
+      }
     }, 500);
   } catch (err) {
     console.error("Login error:", err);

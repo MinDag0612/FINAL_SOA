@@ -18,7 +18,8 @@
     }
     return current;
   };
-  const DEFAULT_BASE = resolveBase();
+  const configBase = window.CONFIG?.BACKEND_PUBLIC_URL;
+  const DEFAULT_BASE = configBase || resolveBase();
   console.info("SOA API base", DEFAULT_BASE);
 
   const getAuth = () => {
@@ -174,6 +175,27 @@
           throw err;
         }
       },
+      occupiedSlots: async (facilityId, date) => {
+        if (!facilityId) {
+          console.warn("[API] occupiedSlots: facilityId is empty, returning []");
+          return [];
+        }
+        try {
+          const params = new URLSearchParams();
+          if (date) params.append("date", date);
+          const queryString = params.toString();
+          const url = `/booking/facility/${facilityId}/occupied-slots${queryString ? `?${queryString}` : ""}`;
+          console.log(`[API] Calling occupiedSlots: ${url}`);
+          const res = await request(url);
+          console.log("[API] Occupied slots raw response:", res);
+          const bookings = res?.data || res || [];
+          console.log("[API] Occupied slots bookings:", bookings, "isArray:", Array.isArray(bookings));
+          return Array.isArray(bookings) ? bookings : [];
+        } catch (err) {
+          console.error("Occupied slots error:", err);
+          return []; // Return empty array instead of throwing
+        }
+      },
       managerList: async (facilityId, date) => {
         if (!facilityId) return [];
         try {
@@ -189,6 +211,22 @@
         } catch (err) {
           console.error("Manager booking list error:", err);
           return []; // Return empty array instead of throwing
+        }
+      },
+      logsByFacility: async (facilityId, date) => {
+        if (!facilityId) return [];
+        try {
+          const params = new URLSearchParams();
+          if (date) params.append("date", date);
+          const queryString = params.toString();
+          const url = `/booking/facility/${facilityId}/logs${queryString ? `?${queryString}` : ""}`;
+          console.log("[API] Fetching booking logs:", url);
+          const res = await request(url, { forceRefresh: true });
+          console.log("[API] Booking logs response:", res);
+          return res?.data || res || [];
+        } catch (err) {
+          console.error("Booking logs error:", err);
+          return [];
         }
       },
       cancel: async (bookingId, payload) => {
@@ -210,6 +248,29 @@
           });
         } catch (err) {
           console.error("Booking update status error:", err);
+          throw err;
+        }
+      },
+      reschedule: async (bookingId, payload) => {
+        try {
+          const res = await request(`/booking/booking/${bookingId}/reschedule`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          return res?.data || res;
+        } catch (err) {
+          console.error("Booking reschedule error:", err);
+          throw err;
+        }
+      },
+      logAction: async (bookingId, payload) => {
+        try {
+          return request(`/booking/booking/${bookingId}/log`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        } catch (err) {
+          console.error("Booking log action error:", err);
           throw err;
         }
       },

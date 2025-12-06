@@ -86,8 +86,8 @@ def register_user(user_infor: New_User_infor, db_session: Session = Depends(db.g
         if not user_infor.email or not user_infor.password or not user_infor.fullname or not user_infor.role:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Fullname, email, and password and role are required")
         
-        if user_infor.role not in ["manager", "customer"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role must be either 'manager' or 'customer'")
+        if user_infor.role not in ["manager", "customer", "staff"]:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role must be either 'manager', 'customer', or 'staff'")
         
         response = auth_service.create_user(user_infor)
         send_event("user.signup", {

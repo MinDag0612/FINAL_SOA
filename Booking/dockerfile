@@ -23,5 +23,5 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 EXPOSE 8003
 
-# Chạy migrate rồi khởi động uvicorn
-CMD ["sh", "-c", "alembic -c Booking/alembic.ini upgrade head && uvicorn Booking.controller.main:app --host 0.0.0.0 --port 8003 --reload"]
+# Chạy uvicorn (skip alembic vì tables đã tồn tại)
+CMD ["uvicorn", "Booking.controller.main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]

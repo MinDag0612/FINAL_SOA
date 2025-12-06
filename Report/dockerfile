@@ -3,14 +3,14 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy requirements trước để tận dụng cache
-COPY ./Report/requirements.txt /app/requirements.txt
+COPY ./Report/requirements.txt /app/Report/requirements.txt
+
+# Cài đặt các dependencies
+RUN pip install --no-cache-dir -r /app/Report/requirements.txt
 
 # Copy toàn bộ source code
 COPY ./jwt_shared /app/jwt_shared
 COPY ./Report /app/Report
-
-# Cài đặt các dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
 
 
 
